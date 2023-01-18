@@ -37,7 +37,7 @@ Backs up the database to a Google Cloud storage bucket.
 
 ## charRescue.sh<br>
 #### Description:
-Rescues a stuck player by modifying their xml file and playing them in a predetermined world and location.
+Rescues a stuck player by modifying their xml data and placing them in a predetermined world and location.
 
 #### Use:
 1. Enter the location to which to move the player to. 
@@ -104,7 +104,7 @@ If enabled, will also publish an MQTT JSON message with world info. This is used
 Pulls the character xml data for the give character ID and puts it in a file called `xmlData.txt`
 
 #### Use:
-`python3 pullCharXml.sh [characterID]`
+`./pullCharXml.sh [characterID]`
 
 <br>
 
@@ -115,7 +115,7 @@ Pulls the given database backup file from a Google Cloud storage bucket and rest
 > This script will need to be edited to work properly for your environment
 
 #### Use:
-`python3 restore-database.sh [backupFileName]`
+`./restore-database.sh [backupFileName]`
 
 <br>
 
