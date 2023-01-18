@@ -88,8 +88,10 @@ If enabled, will also publish an MQTT JSON message with world info. This is used
 2. Copy the `playerCntSettings_OG.py` from `settings` to the root directory of the repo. 
 3. Rename the file you just copied to `playerCntSettings.py`
 4. Open `playerCntSettings.py` and add the credentials
-	4a. To get your webhook, open your Discord server and go to `Server Settings` -> `Integrations` -> `Webhooks` 
+
+	4a. To get your webhook URL, open your Discord server and go to `Server Settings` -> `Integrations` -> `Webhooks` 
 5. Run the script. It will refresh the player count based on the interval set in the settings file
+
 	6a. I would recommend setting up a systemd process to start and stop the script
 
 **To prevent inaccurate readings in the case of a server crash or shutdown, delete the last 24 hrs of the activity log every time you start your server.** 
