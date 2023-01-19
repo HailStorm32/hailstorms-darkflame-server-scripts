@@ -81,7 +81,7 @@ Locks or unlocks the account tied to the given play key.
 #### Description:
 Displays the current count of online players, as well as what worlds are populated. Pushes this info, via a webhook, to a Discord server channel. 
 
-If enabled, will also publish an MQTT JSON message with world info. This is used by my player tracker board (WIP)
+If enabled, will also publish an MQTT JSON message with world info. This is used by the player tracker board that I am developing (WIP)
 
 #### Setup:
 1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
