@@ -90,9 +90,21 @@ If enabled, will also publish an MQTT JSON message with world info. This is used
 4. Open `playerCntSettings.py` and add the credentials
 
 	4a. To get your webhook URL, open your Discord server and go to `Server Settings` -> `Integrations` -> `Webhooks` 
+```  
+DATABASE_IP = "localhost" #IP of the mysql database  
+DATABASE_NAME = "darkflame" #Name of the database  
+DATABASE_USER = "darkflame" #Name of the database user  
+DATABASE_PASS = "passHere" #Database password  
+  
+MQTT_BROKER_ADDR = "ipHere" #IP of MQTT broker (should be server IP)  
+MQTT_BROKER_PORT = 1883 #Port # for MQTT broker (should be 1883)  
+MQTT_UNAME = "unameHere" #Username used to connect to MQTT broker  
+MQTT_PASS = "passHere" #Password used to connect to MQTT broker  
+  
+WEBHOOK_URL = "urlHere"  
+```  
 5. Run the script. It will refresh the player count based on the interval set in the settings file
-
-	6a. I would recommend setting up a systemd process to start and stop the script
+6. I would recommend setting up a systemd process to start and stop the script
 
 **To prevent inaccurate readings in the case of a server crash or shutdown, delete the last 24 hrs of the activity log every time you start your server.** 
 `mysql -u DBuser -p -D DBname -e "DELETE from activity_log WHERE time > UNIX_TIMESTAMP(now() - interval 24 hour);"`
