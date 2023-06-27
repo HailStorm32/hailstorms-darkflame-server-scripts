@@ -145,7 +145,12 @@ while True:
 
     time.sleep(.5)
     print("editing")
-    updateDiscord(webhook, sentWebhook)
+
+    try:
+        updateDiscord(webhook, sentWebhook)
+    except Exception as e:
+         print("WARNING: Failed to update Discord. Will try again in " + str(UPDATE_FREQ) + " seconds\n     |_" + str(e) + "\n\n")
+        
     if MQTT_ENABLE:
         sendMqtt(client)
 
