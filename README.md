@@ -110,6 +110,37 @@ WEBHOOK_URL = "urlHere"
 `mysql -u DBuser -p -D DBname -e "DELETE from activity_log WHERE time > UNIX_TIMESTAMP(now() - interval 24 hour);"`
 
 <br>
+ 
+ ## charXmlPuller.py<br>
+ 
+#### Description:
+"Downloads" all the charxmls that belonging to singe play key. If selected, will also run the `xmlClean.py` script on each charxml.
+
+#### Setup:
+1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
+2. Copy the `playerCntSettings_OG.py` from `settings` to the root directory of the repo. 
+3. Rename the file you just copied to `playerCntSettings.py`
+4. Open `playerCntSettings.py` and add the credentials
+
+```  
+DATABASE_IP = "localhost" #IP of the mysql database  
+DATABASE_NAME = "darkflame" #Name of the database  
+DATABASE_USER = "darkflame" #Name of the database user  
+DATABASE_PASS = "passHere" #Database password  
+```  
+5. Run the script and follow the onscreen prompts
+
+<br>
+ 
+ ## xmlClean.py<br>
+ 
+#### Description:
+Removes items and changes the account ID in a charxml.
+
+#### Use:
+`xmlClean.py [charxml_path] [new_account_id]`
+
+<br>
 
 ## pullCharXml.sh<br>
 #### Description:
