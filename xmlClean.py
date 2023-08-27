@@ -77,7 +77,11 @@ itemNums = [
     8519,
     8080,
     12450,
-    1727 ]
+    1727,
+    13276,
+    13278,
+    13275,
+    13277 ]
 
 #Get the xml file line
 file = open(xmlFileName, "r")
