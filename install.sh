@@ -14,5 +14,6 @@ ln -v writeCharXml.sh ~/
 echo "Copying over settings file.."
 cp settings/playerCntSettings_OG.py ./playerCntSettings.py
 cp settings/charXmlPullerSettings_OG.py ./charXmlPullerSettings.py
+cp settings/contrabandCheckSettings_OG.py ./contrabandCheckSettings.py
 
 echo "Done."

@@ -2,4 +2,5 @@
 !requirements.txt
 playerCntSettings.py
 charXmlPullerSettings.py
+contrabandCheckSettings.py
 __pycache__/

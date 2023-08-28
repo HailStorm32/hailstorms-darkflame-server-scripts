@@ -1,3 +1,4 @@
 discord-webhook==0.17.0             # playerCntDisplay.py
 mysql-connector-python-rf==2.2.2    # playerCntDisplay.py, charXmlPuller.py
 paho-mqtt==1.6.1                    # playerCntDisplay.py
+xmltodict==0.13.0                   # contrabandCheck.py
