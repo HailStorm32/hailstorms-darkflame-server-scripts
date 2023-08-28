@@ -132,6 +132,28 @@ DATABASE_PASS = "passHere" #Database password
 
 <br>
  
+ ## contrabandCheck.py<br>
+ 
+#### Description:
+Searches all accounts (exept those excluded in the settings file) in the database for contraband items. Uses the `contrabandIds` dictionary for what items are to be searched for. 
+
+#### Setup:
+1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
+2. Copy the `contrabandCheckSettings_OG.py` from `settings` to the root directory of the repo. 
+3. Rename the file you just copied to `contrabandCheckSettings.py`
+4. Open `contrabandCheckSettings.py` and add the credentials
+
+```  
+DATABASE_IP = "localhost" #IP of the mysql database  
+DATABASE_NAME = "darkflame" #Name of the database  
+DATABASE_USER = "darkflame" #Name of the database user  
+DATABASE_PASS = "passHere" #Database password  
+```  
+5. Run the script
+6. If contraband is found, the account key, offending character name and list of contraband items will be printed
+
+<br>
+ 
  ## xmlClean.py<br>
  
 #### Description:
