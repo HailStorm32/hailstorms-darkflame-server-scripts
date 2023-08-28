@@ -114,13 +114,13 @@ WEBHOOK_URL = "urlHere"
  ## charXmlPuller.py<br>
  
 #### Description:
-"Downloads" all the charxmls that belonging to singe play key. If selected, will also run the `xmlClean.py` script on each charxml.
+"Downloads" all the charxmls that belonging to single account. If selected, will also run the `xmlClean.py` script on each charxml.
 
 #### Setup:
 1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
-2. Copy the `playerCntSettings_OG.py` from `settings` to the root directory of the repo. 
-3. Rename the file you just copied to `playerCntSettings.py`
-4. Open `playerCntSettings.py` and add the credentials
+2. Copy the `charXmlPullerSettings_OG.py` from `settings` to the root directory of the repo. 
+3. Rename the file you just copied to `charXmlPullerSettings.py`
+4. Open `charXmlPullerSettings.py` and add the credentials
 
 ```  
 DATABASE_IP = "localhost" #IP of the mysql database  
