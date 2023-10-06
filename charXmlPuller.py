@@ -43,7 +43,8 @@ try:
         passwd=DATABASE_PASS,
         database=DATABASE_NAME
     )
-except:
+except mysql.connector.Error as err:
+    print(err)
     print("Failed to connect to database. Exiting.")
     exit()
 
@@ -102,6 +103,18 @@ if printDebug:
 # Print account name   
 print("\nAccount Name: " + accountName)
 
+# Get character ids from database
+cursor.execute("SELECT * FROM charinfo WHERE account_id = %s", (accountId,))
+characterIdDict = cursor.fetchall()
+
+# Print number of characters account has
+print("Number of Characters: " + str(len(characterIdDict)) + "\n")
+
+# Exit if the account has no characters
+if len(characterIdDict) == 0:
+    print("Account has no characters. Exiting.")
+    exit()
+
 # Ask user for the new account ID if they want the xmls cleaned
 if cleanXmls:
     while True:
@@ -111,10 +124,6 @@ if cleanXmls:
             print("Invalid account ID format. Please try again.\n")
         else:
             break
-
-# Get character ids from database
-cursor.execute("SELECT * FROM charinfo WHERE account_id = %s", (accountId,))
-characterIdDict = cursor.fetchall()
 
 # Cycle through character ids
 for character in characterIdDict:
