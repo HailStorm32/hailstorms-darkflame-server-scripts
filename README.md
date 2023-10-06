@@ -130,6 +130,9 @@ DATABASE_PASS = "passHere" #Database password
 ```  
 5. Run the script and follow the onscreen prompts
 
+If you are getting the following error `Authentication plugin 'caching_sha2_password' is not supported` run:
+`pip install --upgrade mysql-connector-python`
+
 <br>
  
  ## contrabandCheck.py<br>
