@@ -11,11 +11,19 @@ MQTT_BROKER_PORT = 1883 #Port # for MQTT broker (should be 1883) YOU WILL NEED T
 MQTT_UNAME = "unameHere" #Username used to connect to MQTT broker
 MQTT_PASS = "passHere" #Password used to connect to MQTT broker
 
+#Frequency Settings
 ACTIVITY_AGE = 24 #In hours, how old an activity log enty can be for it to be read. Anything older will be ingnored
 UPDATE_FREQ = 30 #In seconds, how frequent the online counter should update
 
 #Discord Webhook URL
 WEBHOOK_URL = "URL_HERE"
+
+#Count History Settings
+AVG_COUNT_ENABLE = True #Enable the average count feature  
+FILE_DIR = "countHistory/" #Directory to store the count history files (must end with /)
+CSV_FILE = "playerCountHistory.csv" #Player Count History CSV File
+DAY_AVG_GRAPH = "dayAvgGraph.png" #Day Average Graph picture
+WEEK_AVG_GRAPH = "weekAvgGraph.png" #Week Average Graph picture
 
 #Should only edit if you are to add more worlds
 worldDict = {

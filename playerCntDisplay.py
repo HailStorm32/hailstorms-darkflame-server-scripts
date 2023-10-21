@@ -1,8 +1,13 @@
+import random
 import mysql.connector
 import paho.mqtt.client as mqtt
 from discord_webhook import DiscordWebhook, DiscordEmbed #https://github.com/lovvskillz/python-discord-webhook
+import pandas as pd
+import matplotlib.pyplot as plt
 import json
+from datetime import datetime
 import time
+import os
 from playerCntSettings import *
 
 
@@ -27,6 +32,8 @@ def resetWorldPop(worldDict):
         worldDict[worldID]["pop"] = 0
 
 def updateDiscord(webhook, sentWebhook):
+    webhook.remove_file(DAY_AVG_GRAPH)
+    webhook.remove_file(WEEK_AVG_GRAPH)
     webhook.remove_embeds()
     
     embeds = createEmbeds(numberOnline)
@@ -34,11 +41,17 @@ def updateDiscord(webhook, sentWebhook):
     webhook.add_embed(embeds[0])
     webhook.add_embed(embeds[1])
 
-    sentWebhook = webhook.edit(sentWebhook)
+    with open(FILE_DIR + DAY_AVG_GRAPH, 'rb') as f:
+        webhook.add_file(file=f.read(), filename=DAY_AVG_GRAPH)
+    with open(FILE_DIR + WEEK_AVG_GRAPH, 'rb') as f:
+        webhook.add_file(file=f.read(), filename=WEEK_AVG_GRAPH)
+
+    sentWebhook = webhook.edit()
 
 def createEmbeds(numberOnline):
     embedPlyrCnt = None
     embedWorldPop = None
+  
 
     #Create online players embed
     embedPlyrCnt = DiscordEmbed(title="Online Players", color="03b2f8")
@@ -47,6 +60,7 @@ def createEmbeds(numberOnline):
     embedPlyrCnt.set_timestamp()
 
     embedPlyrCnt.add_embed_field(name="Total Online players:", value=str(numberOnline), inline=False)
+
 
     #Create world population embed
     embedWorldPop = DiscordEmbed(title="World Population", color="03b2f8")
@@ -75,8 +89,58 @@ def sendMqtt(client):
     jsonToSend = json.dumps(worldDict, indent=1)
     client.publish("playerStatus", payload=jsonToSend, retain=True)
 
+def generateGraphs():
+    #Read CSV file into a DataFrame
+    try:
+        df = pd.read_csv(FILE_DIR + CSV_FILE, names=['timestamp', 'player_count'])
+    except Exception as e:
+        print("WARNING: Failed to read CSV file.\n     |_" + str(e) + "\n\n")
+        return
+
+    #Convert 'timestamp' to a DateTime object and set as index
+    df['timestamp'] = pd.to_datetime(df['timestamp'], utc=True)
+    df.set_index('timestamp', inplace=True)
+
+    #Calculate the average player count for each hour of an average day
+    average_hour_of_day = df.groupby(df.index.hour).mean()
+
+    #Calculate the average player count for each day of an average week
+    day_of_week_map = {0: 'Mon', 1: 'Tue', 2: 'Wed', 3: 'Thu', 4: 'Fri', 5: 'Sat', 6: 'Sun'}
+    average_day_of_week = df.groupby(df.index.dayofweek).mean()
+    average_day_of_week['day_name'] = average_day_of_week.index.map(day_of_week_map)
+
+    #Calculate the overall average player count
+    overall_average_player_count = df['player_count'].mean()
+
+    #Get formated current date and time
+    formatted_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+
+    # Plotting average player count for each hour of an average day with line graph
+    plt.figure(figsize=(10, 4))
+    plt.plot(average_hour_of_day.index, average_hour_of_day['player_count'], marker='o')
+    plt.title('Average Player Count for Each Hour of an Average Day\nlast updated: ' + str(formatted_time) + 'UTC')
+    plt.xlabel('Hour of Day (UTC)')
+    plt.ylabel('Average Player Count')
+    plt.xticks(range(24))
+    plt.grid(True)
+    plt.savefig(FILE_DIR + DAY_AVG_GRAPH)
+    plt.close()
+
+    # Plotting average player count for each day of an average week with line graph
+    plt.figure(figsize=(10, 4))
+    plt.plot(average_day_of_week['day_name'], average_day_of_week['player_count'], marker='o')
+    plt.title('Average Player Count for Each Day of an Average Week\nlast updated: ' + str(formatted_time) + 'UTC')
+    plt.xlabel('Day of Week (UTC based)')
+    plt.ylabel('Average Player Count')
+    plt.grid(True)
+    plt.savefig(FILE_DIR + WEEK_AVG_GRAPH)
+    plt.close()
+
+    print(f"Overall average: {overall_average_player_count}")
+
 
 numberOnline = 0
+
 
 #MQTT 
 if MQTT_ENABLE:
@@ -99,62 +163,79 @@ webhook.add_embed(embeds[0])
 webhook.add_embed(embeds[1])
 sentWebhook = webhook.execute()
 
-while True:
-    numberOnline = 0
-    resetWorldPop(worldDict)
-    
+#If the average count feature is enabled, create the directory if it doesnt exist
+if AVG_COUNT_ENABLE:
+    if not os.path.exists(FILE_DIR):
+        os.makedirs(FILE_DIR)
 
-    database = mysql.connector.connect(
-            host = DATABASE_IP,
-            user = DATABASE_USER,
-            passwd = DATABASE_PASS,
-            database = DATABASE_NAME )
 
-    cursor = database.cursor(dictionary=True)
+if __name__ == "__main__":
 
-    #Get all the characters
-    cursor.execute("SELECT id, account_id FROM charinfo;")
-    characters = cursor.fetchall()
-    #print(characters)
-    
-
-    #Get timestamp of 24hrs ago
-    timestamp = int(time.time()) - (ACTIVITY_AGE * 3600) #convert hrs to sec
-
-    #Get the activity log of the past 24hrs 
-    cursor.execute("SELECT character_id, activity, time, map_id FROM activity_log WHERE time > " + str(timestamp) + " ;")
-    activityDict = cursor.fetchall()
-    #print(activityDict)
-
-    #Cycle through all the characters
-    for character in characters:
-        #Get character status
-        status = getCharStatus(character["id"], activityDict)
-
-        if status["isOnline"]:
-            numberOnline += 1
-
-            if status["world"] in worldDict:
-                worldDict[status["world"]]["pop"] += 1
-            else:
-                print("\n\nUnknown world ID: " + str(status["world"]) + "\n\n")
-                worldDict["unknown"]["pop"] += 1
-
-    
-    print("\n\nOnline: " + str(numberOnline))
-
-    time.sleep(.5)
-    print("editing")
-
-    try:
-        updateDiscord(webhook, sentWebhook)
-    except Exception as e:
-         print("WARNING: Failed to update Discord. Will try again in " + str(UPDATE_FREQ) + " seconds\n     |_" + str(e) + "\n\n")
+    while True:
+        numberOnline = 0
+        resetWorldPop(worldDict)
         
-    if MQTT_ENABLE:
-        sendMqtt(client)
 
-    time.sleep(UPDATE_FREQ)
+        database = mysql.connector.connect(
+                host = DATABASE_IP,
+                user = DATABASE_USER,
+                passwd = DATABASE_PASS,
+                database = DATABASE_NAME )
+
+        cursor = database.cursor(dictionary=True)
+
+        #Get all the characters
+        cursor.execute("SELECT id, account_id FROM charinfo;")
+        characters = cursor.fetchall()
+        #print(characters)
+        
+
+        #Get timestamp of 24hrs ago
+        timestamp = int(time.time()) - (ACTIVITY_AGE * 3600) #convert hrs to sec
+
+        #Get the activity log of the past 24hrs 
+        cursor.execute("SELECT character_id, activity, time, map_id FROM activity_log WHERE time > " + str(timestamp) + " ;")
+        activityDict = cursor.fetchall()
+        #print(activityDict)
+
+        #Cycle through all the characters
+        for character in characters:
+            #Get character status
+            status = getCharStatus(character["id"], activityDict)
+
+            if status["isOnline"]:
+                numberOnline += 1
+
+                if status["world"] in worldDict:
+                    worldDict[status["world"]]["pop"] += 1
+                else:
+                    print("\n\nUnknown world ID: " + str(status["world"]) + "\n\n")
+                    worldDict["unknown"]["pop"] += 1
+
+        #Append count data to CSV file
+        try:
+            with open(FILE_DIR + CSV_FILE, 'a') as f:
+                f.write(f"{datetime.utcnow()},{numberOnline}\n")
+        except Exception as e:
+            print("WARNING: Failed to write to CSV file.\n     |_" + str(e) + "\n\n")
+            
+
+        print("\n\nOnline: " + str(numberOnline))
+
+        time.sleep(.5)
+        print("editing")
+
+        generateGraphs()
+
+        try:
+            updateDiscord(webhook, sentWebhook)
+        except Exception as e:
+            print("WARNING: Failed to update Discord. Will try again in " + str(UPDATE_FREQ) + " seconds\n     |_" + str(e) + "\n\n")
+            
+        if MQTT_ENABLE:
+            sendMqtt(client)
+
+        time.sleep(UPDATE_FREQ)
 
 
 

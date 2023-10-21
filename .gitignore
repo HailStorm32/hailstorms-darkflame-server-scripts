@@ -3,4 +3,5 @@
 playerCntSettings.py
 charXmlPullerSettings.py
 contrabandCheckSettings.py
+countHistory/
 __pycache__/
