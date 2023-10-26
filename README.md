@@ -79,9 +79,9 @@ Locks or unlocks the account tied to the given play key.
  ## playerCntDisplay.py<br>
  
 #### Description:
-Displays the current count of online players, as well as what worlds are populated. Pushes this info, via a webhook, to a Discord server channel. 
+Displays the current count of online players, as well as what worlds are populated. Pushes this info, along with stats, via webhooks, to a Discord server channel. 
 
-If enabled, will also publish an MQTT JSON message with world info. This is used by the player tracker board that I am developing (WIP)
+If enabled, will also publish an MQTT JSON message with world info. This is used by the [player tracker board](https://github.com/HailStorm32/LU-Player-Tracker-Code) that I am developing (WIP)
 
 #### Setup:
 1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
@@ -90,6 +90,7 @@ If enabled, will also publish an MQTT JSON message with world info. This is used
 4. Open `playerCntSettings.py` and add the credentials
 
 	4a. To get your webhook URL, open your Discord server and go to `Server Settings` -> `Integrations` -> `Webhooks` 
+	4b. You will want two webhooks, one for the online count and one for the stats.
 ```  
 DATABASE_IP = "localhost" #IP of the mysql database  
 DATABASE_NAME = "darkflame" #Name of the database  
@@ -101,7 +102,8 @@ MQTT_BROKER_PORT = 1883 #Port # for MQTT broker (should be 1883)
 MQTT_UNAME = "unameHere" #Username used to connect to MQTT broker  
 MQTT_PASS = "passHere" #Password used to connect to MQTT broker  
   
-WEBHOOK_URL = "urlHere"  
+COUNT_WEBHOOK_URL = "1ST_URL_HERE"  #URL of the webhook to send the online count
+STATS_WEBHOOK_URL = "2ND_URL_HERE" #URL of the webhook to send the stats 
 ```  
 5. Run the script. It will refresh the player count based on the interval set in the settings file
 6. I would recommend setting up a systemd process to start and stop the script

@@ -16,7 +16,8 @@ ACTIVITY_AGE = 24 #In hours, how old an activity log enty can be for it to be re
 UPDATE_FREQ = 30 #In seconds, how frequent the online counter should update
 
 #Discord Webhook URL
-WEBHOOK_URL = "URL_HERE"
+COUNT_WEBHOOK_URL = "1ST_URL_HERE"  #URL of the webhook to send the online count
+STATS_WEBHOOK_URL = "2ND_URL_HERE" #URL of the webhook to send the stats
 
 #Count History Settings
 AVG_COUNT_ENABLE = True #Enable the average count feature  

@@ -31,22 +31,25 @@ def resetWorldPop(worldDict):
     for worldID in worldDict:
         worldDict[worldID]["pop"] = 0
 
-def updateDiscord(webhook, sentWebhook):
-    webhook.remove_file(DAY_AVG_GRAPH)
-    webhook.remove_file(WEEK_AVG_GRAPH)
-    webhook.remove_embeds()
+def updateDiscord(counter_webhook, stats_webhook):
+    stats_webhook.remove_file(DAY_AVG_GRAPH)
+    stats_webhook.remove_file(WEEK_AVG_GRAPH)
+    counter_webhook.remove_embeds()
     
     embeds = createEmbeds(numberOnline)
 
-    webhook.add_embed(embeds[0])
-    webhook.add_embed(embeds[1])
+    counter_webhook.add_embed(embeds[0])
+    counter_webhook.add_embed(embeds[1])
 
     with open(FILE_DIR + DAY_AVG_GRAPH, 'rb') as f:
-        webhook.add_file(file=f.read(), filename=DAY_AVG_GRAPH)
+        stats_webhook.add_file(file=f.read(), filename=DAY_AVG_GRAPH)
     with open(FILE_DIR + WEEK_AVG_GRAPH, 'rb') as f:
-        webhook.add_file(file=f.read(), filename=WEEK_AVG_GRAPH)
+        stats_webhook.add_file(file=f.read(), filename=WEEK_AVG_GRAPH)
 
-    sentWebhook = webhook.edit()
+    stats_webhook.content = " "
+
+    stats_webhook.edit()
+    counter_webhook.edit()
 
 def createEmbeds(numberOnline):
     embedPlyrCnt = None
@@ -153,15 +156,18 @@ if MQTT_ENABLE:
         print("WARNING: Failed to connect to MQTT Broker. Disabling MQTT.\n     |_" + str(e) + "\n\n")
         MQTT_ENABLE = False
 
-#Setup the webhook and send initial message
-webhook = DiscordWebhook(url=WEBHOOK_URL)
+#Setup the webhooks and send initial message
+counter_webhook = DiscordWebhook(url=COUNT_WEBHOOK_URL)
+stats_webhook = DiscordWebhook(url=STATS_WEBHOOK_URL, content="stats")
 
 embeds = createEmbeds(numberOnline)
 
 print(embeds[1])
-webhook.add_embed(embeds[0])
-webhook.add_embed(embeds[1])
-sentWebhook = webhook.execute()
+counter_webhook.add_embed(embeds[0])
+counter_webhook.add_embed(embeds[1])
+counter_webhook.execute()
+
+stats_webhook.execute()
 
 #If the average count feature is enabled, create the directory if it doesnt exist
 if AVG_COUNT_ENABLE:
@@ -228,7 +234,7 @@ if __name__ == "__main__":
         generateGraphs()
 
         try:
-            updateDiscord(webhook, sentWebhook)
+            updateDiscord(counter_webhook, stats_webhook)
         except Exception as e:
             print("WARNING: Failed to update Discord. Will try again in " + str(UPDATE_FREQ) + " seconds\n     |_" + str(e) + "\n\n")
             
