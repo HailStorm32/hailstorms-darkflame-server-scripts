@@ -1,87 +1,11 @@
 import fnmatch
 import sys
+from contrabandCheckSettings import contrabandIds
 
 #Get arguments
 xmlFileName = sys.argv[1]
 accountNum = sys.argv[2]
 
-#Items to remove
-itemNums = [
-    14128,
-    6655,
-    9947,
-    9948,
-    9949,
-    7791,
-    12305,
-    13779,
-    13101,
-    10155,
-    13302,
-    12886,
-    13912,
-    13913,
-    13911,
-    13917,
-    2988,
-    5674,
-    12100,
-    3849,
-    10476,
-    11293,
-    13312,
-    10156,
-    10053,
-    8600,
-    8359,
-    8605,
-    10130,
-    12792,
-    12793,
-    12667,
-    14571,
-    7641,
-    10430,
-    14191,
-    14560,
-    14561,
-    14559,
-    14194,
-    14569,
-    14568,
-    14570,
-    14192,
-    14562,
-    14563,
-    14564,
-    14193,
-    14802,
-    8535,
-    12099,
-    15918,
-    15989,
-    16123,
-    14803,
-    13923,
-    13919,
-    13921,
-    14107,
-    13918,
-    13922,
-    12774,
-    14109,
-    14108,
-    10154,
-    10054,
-    13309,
-    8519,
-    8080,
-    12450,
-    1727,
-    13276,
-    13278,
-    13275,
-    13277 ]
 
 #Get the xml file line
 file = open(xmlFileName, "r")
@@ -91,14 +15,14 @@ xmlFileData = file.readline()
 file.close()
 
 #Remove all the items
-for item in itemNums:
+for item in contrabandIds:
 
     #Find the index where the item entry starts
-    startIndex = xmlFileData.find('<i l="' + str(item) + '"')
+    startIndex = xmlFileData.find('<i l="' + str(item["id"]) + '"')
     
     #Only continue if the item was found
     if startIndex != -1:
-        print("Item " + str(item) + ", match!")
+        print("Item " + str(item["id"]) + ", match!")
     
         index = startIndex
 
