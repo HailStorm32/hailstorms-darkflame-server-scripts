@@ -83,7 +83,16 @@ contrabandIds = [
     {"id": 13276, "name": "Adventure Valiant"},
     {"id": 13278, "name": "Inventor Valiant"},
     {"id": 13275, "name": "Shinobi Valiant"},
-    {"id": 13277, "name": "Space Ranger Valiant"}
+    {"id": 13277, "name": "Space Ranger Valiant"},
+    {"id": 14099, "name": "Racemaster Helmet"},
+    {"id": 14095, "name": "Racemaster Shirt"},
+    {"id": 14098, "name": "Race Ace Helmet"},
+    {"id": 14096, "name": "Race Ace Shirit"},
+    {"id": 14097, "name": "Master Driver Helmet"},
+    {"id": 14100, "name": "Master Driver Shirt"},
+    {"id": 14116, "name": "4 Riders Shirt"},
+    {"id": 14117, "name": "Kinga Hurl Shirt"},
+    {"id": 14118, "name": "Murgle Blotch Shirt"},
 ]
 
 # Inventory types to search
