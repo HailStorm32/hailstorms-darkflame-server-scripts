@@ -32,8 +32,10 @@ def resetWorldPop(worldDict):
         worldDict[worldID]["pop"] = 0
 
 def updateDiscord(counter_webhook, stats_webhook):
-    stats_webhook.remove_file(DAY_AVG_GRAPH)
-    stats_webhook.remove_file(WEEK_AVG_GRAPH)
+    if AVG_COUNT_ENABLE:
+        stats_webhook.remove_file(DAY_AVG_GRAPH)
+        stats_webhook.remove_file(WEEK_AVG_GRAPH)
+    
     counter_webhook.remove_embeds()
     
     embeds = createEmbeds(numberOnline)
@@ -41,14 +43,16 @@ def updateDiscord(counter_webhook, stats_webhook):
     counter_webhook.add_embed(embeds[0])
     counter_webhook.add_embed(embeds[1])
 
-    with open(FILE_DIR + DAY_AVG_GRAPH, 'rb') as f:
-        stats_webhook.add_file(file=f.read(), filename=DAY_AVG_GRAPH)
-    with open(FILE_DIR + WEEK_AVG_GRAPH, 'rb') as f:
-        stats_webhook.add_file(file=f.read(), filename=WEEK_AVG_GRAPH)
+    if AVG_COUNT_ENABLE:
+        with open(FILE_DIR + DAY_AVG_GRAPH, 'rb') as f:
+            stats_webhook.add_file(file=f.read(), filename=DAY_AVG_GRAPH)
+        with open(FILE_DIR + WEEK_AVG_GRAPH, 'rb') as f:
+            stats_webhook.add_file(file=f.read(), filename=WEEK_AVG_GRAPH)
 
-    stats_webhook.content = " "
+        stats_webhook.content = " "
 
-    stats_webhook.edit()
+    if AVG_COUNT_ENABLE:
+        stats_webhook.edit()
     counter_webhook.edit()
 
 def createEmbeds(numberOnline):
@@ -167,7 +171,8 @@ counter_webhook.add_embed(embeds[0])
 counter_webhook.add_embed(embeds[1])
 counter_webhook.execute()
 
-stats_webhook.execute()
+if AVG_COUNT_ENABLE:
+    stats_webhook.execute()
 
 #If the average count feature is enabled, create the directory if it doesnt exist
 if AVG_COUNT_ENABLE:
@@ -218,12 +223,13 @@ if __name__ == "__main__":
                     print("\n\nUnknown world ID: " + str(status["world"]) + "\n\n")
                     worldDict["unknown"]["pop"] += 1
 
-        #Append count data to CSV file
-        try:
-            with open(FILE_DIR + CSV_FILE, 'a') as f:
-                f.write(f"{datetime.utcnow()},{numberOnline}\n")
-        except Exception as e:
-            print("WARNING: Failed to write to CSV file.\n     |_" + str(e) + "\n\n")
+        #Append count data to CSV file if enabled
+        if AVG_COUNT_ENABLE:
+            try:
+                with open(FILE_DIR + CSV_FILE, 'a') as f:
+                    f.write(f"{datetime.utcnow()},{numberOnline}\n")
+            except Exception as e:
+                print("WARNING: Failed to write to CSV file.\n     |_" + str(e) + "\n\n")
             
 
         print("\n\nOnline: " + str(numberOnline))
@@ -231,7 +237,8 @@ if __name__ == "__main__":
         time.sleep(.5)
         print("editing")
 
-        generateGraphs()
+        if AVG_COUNT_ENABLE:
+            generateGraphs()
 
         try:
             updateDiscord(counter_webhook, stats_webhook)
