@@ -162,7 +162,8 @@ if MQTT_ENABLE:
 
 #Setup the webhooks and send initial message
 counter_webhook = DiscordWebhook(url=COUNT_WEBHOOK_URL)
-stats_webhook = DiscordWebhook(url=STATS_WEBHOOK_URL, content="stats")
+if AVG_COUNT_ENABLE:
+    stats_webhook = DiscordWebhook(url=STATS_WEBHOOK_URL, content="stats")
 
 embeds = createEmbeds(numberOnline)
 
