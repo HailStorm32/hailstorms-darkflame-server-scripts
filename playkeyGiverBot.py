@@ -76,7 +76,7 @@ async def on_message(message):
         else:
             new_key = generate_new_key()  # Placeholder for key generation logic
             cursor.execute('INSERT INTO play_keys (key_string, key_uses, active, discord_uuid) VALUES (%s, %s, %s, %s)',
-                           (new_key, 0, 1, uuid_str))
+                           (new_key, 1, 1, uuid_str))
             connection.commit()
 
             try:
