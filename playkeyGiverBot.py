@@ -26,8 +26,32 @@ def create_connection():
 
 connection = create_connection()
 
+def check_DB_connection():
+    try:
+        if not connection.is_connected():
+            print("Lost connection to MySQL DB, attempting to reconnect...")
+            connection.reconnect(attempts=3, delay=5)
+
+            #Check if the connection was re-established
+            if connection.is_connected():
+                print("Reconnected to MySQL DB")
+                return True
+            else:
+                print("Failed to reconnect to MySQL DB")
+        else:
+            print("Connection to MySQL DB still active")
+            return True
+    except Error as e:
+        print(f"The error '{e}' occurred while reconnecting")
+        
+    return False
+
 # Ensure the discord_uuid column exists in the play_keys table
 def ensure_discord_uuid_column_exists(connection):
+    if not check_DB_connection():
+        print("No mysql connection, unable to check for discord_uuid column")
+        return
+
     cursor = connection.cursor()
     cursor.execute("SHOW COLUMNS FROM play_keys LIKE 'discord_uuid'")
     result = cursor.fetchone()
@@ -58,6 +82,11 @@ async def on_ready():
 async def on_message(message):
     if isinstance(message.channel, discord.TextChannel) and message.channel.name == REQUEST_CHANNEL and not message.author.bot:
         await message.add_reaction('✅')
+
+        if not check_DB_connection():
+            print("No mysql connection, unable to generate play key")
+            await message.add_reaction('⚠️')
+            return
 
         uuid_str = str(message.author.id)
         cursor = connection.cursor()
@@ -102,6 +131,10 @@ def generate_new_key():
 @discord.app_commands.describe(username="The username of the user", note="The note to add")
 @discord.app_commands.checks.has_role('Mythran')
 async def add_note(interaction: discord.Interaction, username: str, note: str):
+    if not check_DB_connection():
+        await interaction.response.send_message("No mysql connection, unable to add note", ephemeral=True)
+        return
+
     user = discord.utils.get(interaction.guild.members, name=username)
     if user:
         uuid_str = str(user.id)
@@ -130,6 +163,10 @@ async def add_note_error(interaction: discord.Interaction, error):
 @discord.app_commands.describe(username="The username of the user")
 @discord.app_commands.checks.has_role(COMMAND_ROLE)
 async def display_notes(interaction: discord.Interaction, username: str):
+    if not check_DB_connection():
+        await interaction.response.send_message("No mysql connection, unable to display notes", ephemeral=True)
+        return
+
     user = discord.utils.get(interaction.guild.members, name=username)
     if user:
         uuid_str = str(user.id)
@@ -155,6 +192,10 @@ async def display_notes_error(interaction: discord.Interaction, error):
 @discord.app_commands.describe(username="The username of the user")
 @discord.app_commands.checks.has_role(COMMAND_ROLE)
 async def show_key(interaction: discord.Interaction, username: str):
+    if not check_DB_connection():
+        await interaction.response.send_message("No mysql connection, unable to display play key", ephemeral=True)
+        return
+
     user = discord.utils.get(interaction.guild.members, name=username)
     if user:
         uuid_str = str(user.id)
@@ -178,6 +219,10 @@ async def show_key_error(interaction: discord.Interaction, error):
 @discord.app_commands.describe(username="The username of the user", note_id="The ID of the note to remove")
 @discord.app_commands.checks.has_role(COMMAND_ROLE)
 async def remove_note(interaction: discord.Interaction, username: str, note_id: int):
+    if not check_DB_connection():
+        await interaction.response.send_message("No mysql connection, unable to remove note", ephemeral=True)
+        return
+
     user = discord.utils.get(interaction.guild.members, name=username)
     if user:
         uuid_str = str(user.id)
