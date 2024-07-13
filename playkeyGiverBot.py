@@ -99,7 +99,7 @@ async def on_message(message):
                 await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{result[0]}`\n\nIf you need to reset your password, please do so here: https://dashboard.legouniverse.best/user/forgot-password')
             except discord.Forbidden:
                 await message.add_reaction('‼️')
-                role = discord.utils.get(message.guild.roles, name="Mythran")
+                role = discord.utils.get(message.guild.roles, name=ROLE_TO_PING)
                 thread = await message.create_thread(name="DM Disabled", auto_archive_duration=1440)  # Auto-archive after 24 hours
                 await thread.send(f'{role.mention}, the user {message.author.mention} already has a key, but DMs are disabled and needs assistance.')
         else:
@@ -113,9 +113,54 @@ async def on_message(message):
                 await message.add_reaction('👍')
             except discord.Forbidden:
                 await message.add_reaction('‼️')
-                role = discord.utils.get(message.guild.roles, name="Mythran")
+                role = discord.utils.get(message.guild.roles, name=ROLE_TO_PING)
                 thread = await message.create_thread(name="DM Disabled", auto_archive_duration=1440)  # Auto-archive after 24 hours
                 await thread.send(f'{role.mention}, the user {message.author.mention} has DMs disabled and needs assistance. A key has already been generated for them and can be found using commands')
+
+@bot.event
+async def on_member_remove(member):
+    if LOCK_ON_LEAVE:
+        guild = member.guild
+        botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL) 
+
+        if not check_DB_connection():
+            if botMessageChannel:
+                await botMessageChannel.send(f'⚠️ Unable to lock account of user `{member.name}`. No connection to DB! \nTheir play key was: `{key}`')
+            return
+
+        #Get the play key for the user and the number of times it has been used
+        cursor = connection.cursor()
+        cursor.execute('SELECT key_string,times_used,id FROM play_keys WHERE discord_uuid=%s', (str(member.id),))
+        result = cursor.fetchone()
+        
+        #If the user has a play key
+        if result:
+            key = result[0]
+            key_uses = result[1]
+            key_id = result[2]
+
+            #Only lock account if the key has been used
+            if key_uses > 0:
+                #Lock the account
+                cursor.execute('UPDATE accounts SET locked=1 WHERE play_key_id=%s', (key_id,))
+                connection.commit()
+
+                if botMessageChannel:
+                    await botMessageChannel.send(f'The user `{member.name}` has left the server. **Their account has been locked.**\nTheir play key was: `{key}`')
+            
+            #If the key has not been used, deactivate it
+            else:
+                cursor.execute('UPDATE play_keys SET active=0 WHERE key_string=%s', (str(key),))
+                connection.commit()
+
+                if botMessageChannel:
+                    await botMessageChannel.send(f'The user `{member.name}` has left the server. Play key found, but no account. \n **Key has been deactivated.**\nTheir play key was: `{key}`')
+        
+        #If the user does not have a play key
+        else:
+            if botMessageChannel:
+                await botMessageChannel.send(f'The user `{member.name}` has left the server. No play key found for them.')
+
 
 def generate_new_key():
     key = ""
