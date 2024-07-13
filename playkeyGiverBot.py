@@ -7,6 +7,7 @@ from discord.ext import commands
 import mysql.connector
 import json
 from mysql.connector import Error
+from datetime import datetime
 from playkeyBotSettings import *
 
 # Set up database connection
@@ -147,6 +148,8 @@ async def on_member_remove(member):
 
                 if botMessageChannel:
                     await botMessageChannel.send(f'The user `{member.name}` has left the server. **Their account has been locked.**\nTheir play key was: `{key}`')
+
+                note_message = f'Account locked on leave. Date: {datetime.now()}'
             
             #If the key has not been used, deactivate it
             else:
@@ -155,7 +158,12 @@ async def on_member_remove(member):
 
                 if botMessageChannel:
                     await botMessageChannel.send(f'The user `{member.name}` has left the server. Play key found, but no account. \n **Key has been deactivated.**\nTheir play key was: `{key}`')
-        
+
+                note_message = f'Playkey deactivated on leave. Date: {datetime.now()}'
+            
+            #Save a note for the user that their account/key was locked
+            save_note(str(member.id), note_message)
+
         #If the user does not have a play key
         else:
             if botMessageChannel:
@@ -172,9 +180,24 @@ def generate_new_key():
 
     return key
 
+def save_note(uuid_str, note):
+    cursor = connection.cursor()
+    cursor.execute('SELECT notes FROM play_keys WHERE discord_uuid=%s', (uuid_str,))
+    result = cursor.fetchone()
+
+    if result:
+        notes = json.loads(result[0]) if result[0] else []
+        note_id = len(notes)
+        notes.append({"id": note_id, "note": note})
+        cursor.execute('UPDATE play_keys SET notes=%s WHERE discord_uuid=%s', (json.dumps(notes), uuid_str))
+        connection.commit()
+        return True
+    else:
+        return False
+
 @bot.tree.command(name="addnote", description="Add a note to a user")
 @discord.app_commands.describe(username="The username of the user", note="The note to add")
-@discord.app_commands.checks.has_role('Mythran')
+@discord.app_commands.checks.has_role(COMMAND_ROLE)
 async def add_note(interaction: discord.Interaction, username: str, note: str):
     if not check_DB_connection():
         await interaction.response.send_message("No mysql connection, unable to add note", ephemeral=True)
@@ -182,17 +205,7 @@ async def add_note(interaction: discord.Interaction, username: str, note: str):
 
     user = discord.utils.get(interaction.guild.members, name=username)
     if user:
-        uuid_str = str(user.id)
-        cursor = connection.cursor()
-        cursor.execute('SELECT notes FROM play_keys WHERE discord_uuid=%s', (uuid_str,))
-        result = cursor.fetchone()
-
-        if result:
-            notes = json.loads(result[0]) if result[0] else []
-            note_id = len(notes)
-            notes.append({"id": note_id, "note": note})
-            cursor.execute('UPDATE play_keys SET notes=%s WHERE discord_uuid=%s', (json.dumps(notes), uuid_str))
-            connection.commit()
+        if save_note(str(user.id), note):
             await interaction.response.send_message(f'Note added for {username}: [{note_id}] {note}', ephemeral=True)
         else:
             await interaction.response.send_message(f'No play key found for user {username}', ephemeral=True)
