@@ -1,4 +1,4 @@
-# Credit to GPT-4o for the original code, I have fine-tuned it to work with for my needs
+# Credit to GPT-4o for a good part of the original code, I have fine-tuned and modified it to work with for my needs
 
 import discord
 import string
@@ -129,46 +129,102 @@ async def on_member_remove(member):
                 await botMessageChannel.send(f'⚠️ Unable to lock account of user `{member.name}`. No connection to DB! \nTheir play key was: `{key}`')
             return
 
-        #Get the play key for the user and the number of times it has been used
-        cursor = connection.cursor()
-        cursor.execute('SELECT key_string,times_used,id FROM play_keys WHERE discord_uuid=%s', (str(member.id),))
-        result = cursor.fetchone()
+        if botMessageChannel:
+            botMessageChannelMessage = lock_account(member.name, member.id)
+            await botMessageChannel.send(botMessageChannelMessage)
         
-        #If the user has a play key
-        if result:
-            key = result[0]
-            key_uses = result[1]
-            key_id = result[2]
+def lock_account(member_name, uuid, player_left=True):
+    #Get the play key for the user and the number of times it has been used
+    cursor = connection.cursor()
+    cursor.execute('SELECT key_string,times_used,id FROM play_keys WHERE discord_uuid=%s', (str(uuid),))
+    result = cursor.fetchone()
+    
+    #If the user has a play key
+    if result:
+        key = result[0]
+        key_uses = result[1]
+        key_id = result[2]
 
-            #Only lock account if the key has been used
-            if key_uses > 0:
-                #Lock the account
-                cursor.execute('UPDATE accounts SET locked=1 WHERE play_key_id=%s', (key_id,))
-                connection.commit()
+        #Only lock account if the key has been used
+        if key_uses > 0:
+            #Lock the account
+            cursor.execute('UPDATE accounts SET locked=1 WHERE play_key_id=%s', (key_id,))
+            connection.commit()
 
-                if botMessageChannel:
-                    await botMessageChannel.send(f'The user `{member.name}` has left the server. **Their account has been locked.**\nTheir play key was: `{key}`')
+            if player_left:
+                botMessageChannelMessage = f'The user `{member_name}` has left the server. **Their account has been locked.**\nTheir play key was: `{key}`'
 
                 note_message = f'Account locked on leave. Date: {datetime.now()}'
-            
-            #If the key has not been used, deactivate it
             else:
-                cursor.execute('UPDATE play_keys SET active=0 WHERE key_string=%s', (str(key),))
-                connection.commit()
+                botMessageChannelMessage = f'Account has been locked for user `{member_name}`.'
 
-                if botMessageChannel:
-                    await botMessageChannel.send(f'The user `{member.name}` has left the server. Play key found, but no account. \n **Key has been deactivated.**\nTheir play key was: `{key}`')
+                note_message = f'Account locked by mythran. Date: {datetime.now()}'
+        
+        #If the key has not been used, deactivate it
+        else:
+            cursor.execute('UPDATE play_keys SET active=0 WHERE key_string=%s', (str(key),))
+            connection.commit()
+
+            if player_left:
+                botMessageChannelMessage = f'The user `{member_name}` has left the server. Play key found, but no account. \n **Key has been deactivated.**\nTheir play key was: `{key}`'
 
                 note_message = f'Playkey deactivated on leave. Date: {datetime.now()}'
-            
-            #Save a note for the user that their account/key was locked
-            save_note(str(member.id), note_message)
+            else:
+                botMessageChannelMessage = f'Playkey for user `{member_name}` has been deactivated. No account found.'
 
-        #If the user does not have a play key
+                note_message = f'Playkey deactivated by mythran. Date: {datetime.now()}'
+        
+        #Save a note for the user that their account/key was locked
+        save_note(str(uuid), note_message)
+
+    #If the user does not have a play key
+    else:
+        if player_left:
+            botMessageChannelMessage = f'The user `{member_name}` has left the server. **No play key found for them.**'
         else:
-            if botMessageChannel:
-                await botMessageChannel.send(f'The user `{member.name}` has left the server. No play key found for them.')
+            botMessageChannelMessage = f'The user `{member_name}` does not have a playkey'
 
+    return botMessageChannelMessage 
+
+def unlock_account(member_name, uuid):
+    # Get the play key for the user
+    cursor = connection.cursor()
+    cursor.execute('SELECT key_string, times_used, id FROM play_keys WHERE discord_uuid=%s', (str(uuid),))
+    result = cursor.fetchone()
+    
+    # If the user has a play key
+    if result:
+        key = result[0]
+        key_uses = result[1]
+        key_id = result[2]
+
+        #Only unlock account if the key has been used
+        if key_uses > 0:
+            # Unlock the account if it was previously locked
+            cursor.execute('UPDATE accounts SET locked=0 WHERE play_key_id=%s', (key_id,))
+            connection.commit()
+
+            botMessageChannelMessage = f'Account unlocked for user `{member_name}`.'
+
+            note_message = f'Account unlocked by mythran. Date: {datetime.now()}'
+
+        # Reactivate the play key if it was deactivated
+        else:
+            cursor.execute('UPDATE play_keys SET active=1 WHERE key_string=%s', (str(key),))
+            connection.commit()
+
+            botMessageChannelMessage = f'Playkey for user `{member_name}` has been reactivated. No account found.'
+
+            note_message = f'Playkey reactivated by mythran. Date: {datetime.now()}'
+        
+        # Save a note for the user that their account/key was unlocked/reactivated
+        save_note(str(uuid), note_message)
+
+    # If the user does not have a play key
+    else:
+        botMessageChannelMessage = f'The user `{member_name}` does not have a playkey'
+
+    return botMessageChannelMessage
 
 def generate_new_key():
     key = ""
@@ -195,10 +251,52 @@ def save_note(uuid_str, note):
     else:
         return False
 
+@bot.tree.command(name="lockaccount", description="Lock the account of a user")
+@discord.app_commands.describe(username="The username of the user")
+@discord.app_commands.checks.has_role(COMMAND_ROLE)
+async def lock_account_cmd(interaction: discord.Interaction, username: str):
+    if not check_DB_connection():
+        await interaction.response.send_message("No mysql connection, unable to add note", ephemeral=True)
+        return
+
+    user = discord.utils.get(interaction.guild.members, name=username)
+    if user:
+        message = lock_account(user.name, user.id, False)
+        await interaction.response.send_message(message, ephemeral=True)
+        
+    else:
+        await interaction.response.send_message(f'User {username} not found', ephemeral=True)
+
+@lock_account_cmd.error
+async def lock_account_cmd_error(interaction: discord.Interaction, error):
+    if isinstance(error, discord.app_commands.MissingRole):
+        await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
+
+@bot.tree.command(name="unlockaccount", description="Unlock the account of a user")
+@discord.app_commands.describe(username="The username of the user")
+@discord.app_commands.checks.has_role(COMMAND_ROLE)
+async def unlock_account_cmd(interaction: discord.Interaction, username: str):
+    if not check_DB_connection():
+        await interaction.response.send_message("No mysql connection, unable to add note", ephemeral=True)
+        return
+
+    user = discord.utils.get(interaction.guild.members, name=username)
+    if user:
+        message = unlock_account(user.name, user.id)
+        await interaction.response.send_message(message, ephemeral=True)
+        
+    else:
+        await interaction.response.send_message(f'User {username} not found', ephemeral=True)
+
+@unlock_account_cmd.error
+async def unlock_account_cmd_error(interaction: discord.Interaction, error):
+    if isinstance(error, discord.app_commands.MissingRole):
+        await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
+   
 @bot.tree.command(name="addnote", description="Add a note to a user")
 @discord.app_commands.describe(username="The username of the user", note="The note to add")
 @discord.app_commands.checks.has_role(COMMAND_ROLE)
-async def add_note(interaction: discord.Interaction, username: str, note: str):
+async def add_note_cmd(interaction: discord.Interaction, username: str, note: str):
     if not check_DB_connection():
         await interaction.response.send_message("No mysql connection, unable to add note", ephemeral=True)
         return
@@ -212,15 +310,15 @@ async def add_note(interaction: discord.Interaction, username: str, note: str):
     else:
         await interaction.response.send_message(f'User {username} not found', ephemeral=True)
 
-@add_note.error
-async def add_note_error(interaction: discord.Interaction, error):
+@add_note_cmd.error
+async def add_note_cmd_error(interaction: discord.Interaction, error):
     if isinstance(error, discord.app_commands.MissingRole):
         await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
 
 @bot.tree.command(name="displaynotes", description="Display notes for a user")
 @discord.app_commands.describe(username="The username of the user")
 @discord.app_commands.checks.has_role(COMMAND_ROLE)
-async def display_notes(interaction: discord.Interaction, username: str):
+async def display_notes_cmd(interaction: discord.Interaction, username: str):
     if not check_DB_connection():
         await interaction.response.send_message("No mysql connection, unable to display notes", ephemeral=True)
         return
@@ -241,15 +339,15 @@ async def display_notes(interaction: discord.Interaction, username: str):
     else:
         await interaction.response.send_message(f'User {username} not found', ephemeral=True)
 
-@display_notes.error
-async def display_notes_error(interaction: discord.Interaction, error):
+@display_notes_cmd.error
+async def display_notes_cmd_error(interaction: discord.Interaction, error):
     if isinstance(error, discord.app_commands.MissingRole):
         await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
 
 @bot.tree.command(name="showkey", description="Show play key for a user")
 @discord.app_commands.describe(username="The username of the user")
 @discord.app_commands.checks.has_role(COMMAND_ROLE)
-async def show_key(interaction: discord.Interaction, username: str):
+async def show_key_cmd(interaction: discord.Interaction, username: str):
     if not check_DB_connection():
         await interaction.response.send_message("No mysql connection, unable to display play key", ephemeral=True)
         return
@@ -268,15 +366,15 @@ async def show_key(interaction: discord.Interaction, username: str):
     else:
         await interaction.response.send_message(f'User {username} not found', ephemeral=True)
 
-@show_key.error
-async def show_key_error(interaction: discord.Interaction, error):
+@show_key_cmd.error
+async def show_key_cmd_error(interaction: discord.Interaction, error):
     if isinstance(error, discord.app_commands.MissingRole):
         await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
 
 @bot.tree.command(name="removenote", description="Remove a note from a user by ID")
 @discord.app_commands.describe(username="The username of the user", note_id="The ID of the note to remove")
 @discord.app_commands.checks.has_role(COMMAND_ROLE)
-async def remove_note(interaction: discord.Interaction, username: str, note_id: int):
+async def remove_note_cmd(interaction: discord.Interaction, username: str, note_id: int):
     if not check_DB_connection():
         await interaction.response.send_message("No mysql connection, unable to remove note", ephemeral=True)
         return
@@ -304,8 +402,8 @@ async def remove_note(interaction: discord.Interaction, username: str, note_id: 
     else:
         await interaction.response.send_message(f'User {username} not found', ephemeral=True)
 
-@remove_note.error
-async def remove_note_error(interaction: discord.Interaction, error):
+@remove_note_cmd.error
+async def remove_note_cmd_error(interaction: discord.Interaction, error):
     if isinstance(error, discord.app_commands.MissingRole):
         await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
 
