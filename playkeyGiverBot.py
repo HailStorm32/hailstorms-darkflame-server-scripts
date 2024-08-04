@@ -97,7 +97,7 @@ async def on_message(message):
         if result:
             await message.add_reaction('❌')
             try:
-                await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{result[0]}`\n\nIf you need to reset your password, please do so here: https://dashboard.legouniverse.best/user/forgot-password')
+                await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{result[0]}`\n\nIf you need to reset your password, please do so here: https://dashboard.nexusuniverse.online/user/forgot-password')
             except discord.Forbidden:
                 await message.add_reaction('‼️')
                 role = discord.utils.get(message.guild.roles, name=ROLE_TO_PING)
@@ -247,9 +247,9 @@ def save_note(uuid_str, note):
         notes.append({"id": note_id, "note": note})
         cursor.execute('UPDATE play_keys SET notes=%s WHERE discord_uuid=%s', (json.dumps(notes), uuid_str))
         connection.commit()
-        return True
+        return note_id
     else:
-        return False
+        return -1
 
 @bot.tree.command(name="lockaccount", description="Lock the account of a user")
 @discord.app_commands.describe(username="The username of the user")
@@ -303,7 +303,8 @@ async def add_note_cmd(interaction: discord.Interaction, username: str, note: st
 
     user = discord.utils.get(interaction.guild.members, name=username)
     if user:
-        if save_note(str(user.id), note):
+        note_id = save_note(str(user.id), note)
+        if note_id >= 0:
             await interaction.response.send_message(f'Note added for {username}: [{note_id}] {note}', ephemeral=True)
         else:
             await interaction.response.send_message(f'No play key found for user {username}', ephemeral=True)
