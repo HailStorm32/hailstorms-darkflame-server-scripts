@@ -97,7 +97,7 @@ async def on_message(message):
         if result:
             await message.add_reaction('❌')
             try:
-                await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{result[0]}`\n\nIf you need to reset your password, please do so here: https://dashboard.nexusuniverse.online/user/forgot-password')
+                await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{result[0]}`\n\nIf you need to reset your password, please do so here: https://dashboard.nexusuniverse.online/user/forgot-password \n\nIf you recently left the Discord, you can unlock your account/key by DMing a Mythran')
             except discord.Forbidden:
                 await message.add_reaction('‼️')
                 role = discord.utils.get(message.guild.roles, name=ROLE_TO_PING)
@@ -110,7 +110,7 @@ async def on_message(message):
             connection.commit()
 
             try:
-                await message.author.send(f'Your Nexus Universe play key is: `{new_key}`')
+                await message.author.send(f'Your Nexus Universe play key is: `{new_key}`\n\nIf you leave the Discord, your account/key will be locked. ')
                 await message.add_reaction('👍')
             except discord.Forbidden:
                 await message.add_reaction('‼️')
