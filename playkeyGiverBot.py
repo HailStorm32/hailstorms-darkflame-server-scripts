@@ -415,7 +415,37 @@ if __name__ == "__main__":
     async def show_key_cmd_error(interaction: discord.Interaction, error):
         if isinstance(error, discord.app_commands.MissingRole):
             await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
-            
+    
+
+    ##############
+    # Command: showaccount
+    ##############
+    @bot.tree.command(name="showaccount", description="Show Discord account name tied to a play key")
+    @discord.app_commands.describe(key="The play key to look up")
+    @discord.app_commands.checks.has_role(COMMAND_ROLE)
+    async def show_account_cmd(interaction: discord.Interaction, key: str):
+        if not check_DB_connection():
+            await interaction.response.send_message("No mysql connection, unable to display account", ephemeral=True)
+            return
+
+        cursor = connection.cursor()
+        cursor.execute('SELECT discord_uuid FROM play_keys WHERE key_string=%s', (key,))
+        result = cursor.fetchone()
+
+        if result:
+            user = discord.utils.get(interaction.guild.members, id=int(result[0]))
+            if user:
+                await interaction.response.send_message(f'Account name for play key `{key}`: `{user.name}`', ephemeral=True)
+            else:
+                await interaction.response.send_message(f'No account found for uuid: `{result[0]}`', ephemeral=True)
+        else:
+            await interaction.response.send_message(f'No account found for play key: `{key}`', ephemeral=True)
+    
+    @show_account_cmd.error
+    async def show_account_cmd_error(interaction: discord.Interaction, error):
+        if isinstance(error, discord.app_commands.MissingRole):
+            await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
+
 
     ##############
     # Command: removenote
