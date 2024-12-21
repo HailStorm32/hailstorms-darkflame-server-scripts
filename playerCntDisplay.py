@@ -5,7 +5,7 @@ from discord_webhook import DiscordWebhook, DiscordEmbed #https://github.com/lov
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import os
 from playerCntSettings import *
@@ -120,7 +120,7 @@ def generateGraphs():
     overall_average_player_count = df['player_count'].mean()
 
     #Get formated current date and time
-    formatted_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+    formatted_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')
 
     # Plotting average player count for each hour of an average day with line graph
     plt.figure(figsize=(10, 4))
@@ -227,7 +227,7 @@ if __name__ == "__main__":
         if AVG_COUNT_ENABLE:
             try:
                 with open(FILE_DIR + CSV_FILE, 'a') as f:
-                    f.write(f"{datetime.utcnow()},{numberOnline}\n")
+                    f.write(f"{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S.%f')},{numberOnline}\n")
             except Exception as e:
                 print("WARNING: Failed to write to CSV file.\n     |_" + str(e) + "\n\n")
             
