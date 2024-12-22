@@ -8,6 +8,7 @@ import mysql.connector
 import json
 from mysql.connector import Error
 from datetime import datetime
+import re
 from playkeyBotSettings import *
 
 
@@ -187,7 +188,7 @@ def generate_new_key():
     return key
 
 
-def save_note(uuid_str, note):
+def save_note(uuid_str, note, is_key=False):
     cursor = connection.cursor()
     cursor.execute('SELECT notes FROM play_keys WHERE discord_uuid=%s', (uuid_str,))
     result = cursor.fetchone()
@@ -195,13 +196,32 @@ def save_note(uuid_str, note):
     if result:
         notes = json.loads(result[0]) if result[0] else []
         note_id = len(notes)
-        notes.append({"id": note_id, "note": note})
+        if is_key:
+            notes.append({"id": note_id, "key": note})
+        else:
+            notes.append({"id": note_id, "note": note})
         cursor.execute('UPDATE play_keys SET notes=%s WHERE discord_uuid=%s', (json.dumps(notes), uuid_str))
         connection.commit()
         return note_id
     else:
         return -1
 
+
+def is_playkey(identifier):
+    pattern = re.compile(r'^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$')
+    return bool(pattern.match(identifier))
+
+def get_key_from_user_id(user_id):
+    cursor = connection.cursor()
+    cursor.execute('SELECT key_string FROM play_keys WHERE discord_uuid=%s', (str(user_id),))
+    result = cursor.fetchone()
+    return result[0] if result else None
+
+def get_user_id_from_key(key):
+    cursor = connection.cursor()
+    cursor.execute('SELECT discord_uuid FROM play_keys WHERE key_string=%s', (key,))
+    result = cursor.fetchone()
+    return result[0] if result else None
 
 #------------------------------------------------------------------------------------------
 # Main
@@ -295,20 +315,30 @@ if __name__ == "__main__":
     # Command: lockaccount
     ##############
     @bot.tree.command(name="lockaccount", description="Lock the account of a user")
-    @discord.app_commands.describe(username="The username of the user")
+    @discord.app_commands.describe(identifier="The username or key of the user")
     @discord.app_commands.checks.has_role(COMMAND_ROLE)
-    async def lock_account_cmd(interaction: discord.Interaction, username: str):
+    async def lock_account_cmd(interaction: discord.Interaction, identifier: str):
         if not check_DB_connection():
             await interaction.response.send_message("No mysql connection, unable to add note", ephemeral=True)
             return
 
-        user = discord.utils.get(interaction.guild.members, name=username)
+        # Check if the identifier is a play key
+        if is_playkey(identifier):
+            uuid = get_user_id_from_key(identifier)
+            
+            if uuid:
+                user = discord.utils.get(interaction.guild.members, id=int(uuid))
+            else:
+                await interaction.response.send_message(f'User with name/play-key `{identifier}` not found', ephemeral=True)
+                return
+        else:
+            user = discord.utils.get(interaction.guild.members, name=identifier)
+        
         if user:
             message = lock_account(user.name, user.id, False)
             await interaction.response.send_message(message, ephemeral=True)
-            
         else:
-            await interaction.response.send_message(f'User {username} not found', ephemeral=True)
+            await interaction.response.send_message(f'User with name/play-key `{identifier}` not found', ephemeral=True)
 
     @lock_account_cmd.error
     async def lock_account_cmd_error(interaction: discord.Interaction, error):
@@ -320,20 +350,30 @@ if __name__ == "__main__":
     # Command: unlockaccount
     ##############
     @bot.tree.command(name="unlockaccount", description="Unlock the account of a user")
-    @discord.app_commands.describe(username="The username of the user")
+    @discord.app_commands.describe(identifier="The username or key of the user")
     @discord.app_commands.checks.has_role(COMMAND_ROLE)
-    async def unlock_account_cmd(interaction: discord.Interaction, username: str):
+    async def unlock_account_cmd(interaction: discord.Interaction, identifier: str):
         if not check_DB_connection():
             await interaction.response.send_message("No mysql connection, unable to add note", ephemeral=True)
             return
 
-        user = discord.utils.get(interaction.guild.members, name=username)
+        # Check if the identifier is a play key
+        if is_playkey(identifier):
+            uuid = get_user_id_from_key(identifier)
+            
+            if uuid:
+                user = discord.utils.get(interaction.guild.members, id=int(uuid))
+            else:
+                await interaction.response.send_message(f'User with name/play-key `{identifier}` not found', ephemeral=True)
+                return
+        else:
+            user = discord.utils.get(interaction.guild.members, name=identifier)
+
         if user:
             message = unlock_account(user.name, user.id)
-            await interaction.response.send_message(message, ephemeral=True)
-            
+            await interaction.response.send_message(message, ephemeral=True)          
         else:
-            await interaction.response.send_message(f'User {username} not found', ephemeral=True)
+            await interaction.response.send_message(f'User with name/play-key `{identifier}` not found', ephemeral=True)
 
     @unlock_account_cmd.error
     async def unlock_account_cmd_error(interaction: discord.Interaction, error):

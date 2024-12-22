@@ -253,8 +253,8 @@ Also implements player notes, allowing moderators to add, remove and display not
 - **`/removenote <username> <id>`**: Removes the specific note ID from the specified user
 - **`/showkey <username>`**: Shows the playkey for the specified user
 - **`/showaccount <play_key>`**: Shows Discord account name tied to given play key
-- **`/lockaccount <username>`**: Locks the account (or key if no account has been made) for the specified user
-- **`/unlockaccount <username>`**: Unlocks the account (or key if no account has been made) for the specified user
+- **`/lockaccount <username_or_playkey>`**: Locks the account (or key if no account has been made) for the specified user
+- **`/unlockaccount <username_or_playkey>`**: Unlocks the account (or key if no account has been made) for the specified user
 
 > **Note:** Ensure that the bot has the necessary permissions in the server and channels it will operate in.
 
@@ -465,3 +465,5 @@ Writes XML data in `xmlData.txt` to the given character ID. Creates a backup of 
   
 
 <br>
+----
+updated: 12/21/2024
