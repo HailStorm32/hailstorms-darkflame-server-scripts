@@ -66,6 +66,20 @@ def ensure_discord_uuid_column_exists(connection):
         connection.commit()
         print("discord_uuid column added to play_keys table")
 
+# Ensure notes column exists in the play_keys table
+def ensure_notes_column_exists(connection):
+    if not check_DB_connection():
+        print("No mysql connection, unable to check for notes column")
+        return
+
+    cursor = connection.cursor()
+    cursor.execute("SHOW COLUMNS FROM play_keys LIKE 'notes'")
+    result = cursor.fetchone()
+    if not result:
+        cursor.execute("ALTER TABLE play_keys ADD COLUMN notes TEXT DEFAULT NULL")
+        connection.commit()
+        print("notes column added to play_keys table")
+
 
 def lock_account(member_name, uuid, player_left=True):
     #Get the play key for the user and the number of times it has been used
@@ -197,6 +211,7 @@ if __name__ == "__main__":
     connection = create_connection()
 
     ensure_discord_uuid_column_exists(connection)
+    ensure_notes_column_exists(connection)
 
     # Set up the bot
     intents = discord.Intents.default()
