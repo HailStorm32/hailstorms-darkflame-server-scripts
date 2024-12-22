@@ -252,6 +252,7 @@ Also implements player notes, allowing moderators to add, remove and display not
 - **`/displaynotes <username>`**:  Displays all the notes for the specified user
 - **`/removenote <username> <id>`**: Removes the specific note ID from the specified user
 - **`/showkey <username>`**: Shows the playkey for the specified user
+- **`/showaccount <play_key>`**: Shows Discord account name tied to given play key
 - **`/lockaccount <username>`**: Locks the account (or key if no account has been made) for the specified user
 - **`/unlockaccount <username>`**: Unlocks the account (or key if no account has been made) for the specified user
 
