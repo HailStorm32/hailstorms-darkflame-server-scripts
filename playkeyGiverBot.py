@@ -261,23 +261,22 @@ if __name__ == "__main__":
                 print("No mysql connection, unable to generate play key")
                 await message.add_reaction('⚠️')
                 return
+            
+            key = get_key_from_user_id(message.author.id)
 
-            uuid_str = str(message.author.id)
-            cursor = connection.cursor()
-            cursor.execute('SELECT key_string FROM play_keys WHERE discord_uuid=%s', (uuid_str,))
-            result = cursor.fetchone()
-
-            if result:
+            if key:
                 await message.add_reaction('❌')
                 try:
-                    await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{result[0]}`\n\nIf you need to reset your password, please do so here: https://dashboard.nexusuniverse.online/user/forgot-password \n\nIf you recently left the Discord, you can unlock your account/key by DMing a Mythran')
+                    await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{key}`\n\nIf you need to reset your password, please do so here: https://dashboard.nexusuniverse.online/user/forgot-password \n\nIf you recently left the Discord, you can unlock your account/key by DMing a Mythran')
                 except discord.Forbidden:
                     await message.add_reaction('‼️')
                     role = discord.utils.get(message.guild.roles, name=ROLE_TO_PING)
                     thread = await message.create_thread(name="DM Disabled", auto_archive_duration=1440)  # Auto-archive after 24 hours
                     await thread.send(f'{role.mention}, the user {message.author.mention} already has a key, but DMs are disabled and needs assistance.')
             else:
-                new_key = generate_new_key()  # Placeholder for key generation logic
+                uuid_str = str(message.author.id)
+                cursor = connection.cursor()
+                new_key = generate_new_key() # Generate a new key
                 cursor.execute('INSERT INTO play_keys (key_string, key_uses, active, discord_uuid) VALUES (%s, %s, %s, %s)',
                             (new_key, 1, 1, uuid_str))
                 connection.commit()
@@ -299,7 +298,7 @@ if __name__ == "__main__":
 
             if not check_DB_connection():
                 if botMessageChannel:
-                    await botMessageChannel.send(f'⚠️ Unable to lock account of user `{member.name}`. No connection to DB! \nTheir play key was: `{key}`')
+                    await botMessageChannel.send(f'⚠️ Unable to lock account of user `{member.name}`. No connection to DB!`')
                 return
 
             if botMessageChannel:
@@ -454,13 +453,10 @@ if __name__ == "__main__":
 
         user = discord.utils.get(interaction.guild.members, name=username)
         if user:
-            uuid_str = str(user.id)
-            cursor = connection.cursor()
-            cursor.execute('SELECT key_string FROM play_keys WHERE discord_uuid=%s', (uuid_str,))
-            result = cursor.fetchone()
+            key = get_key_from_user_id(user.id)
 
-            if result:
-                await interaction.response.send_message(f'Play key for {username}: {result[0]}', ephemeral=True)
+            if key:
+                await interaction.response.send_message(f'Play key for {username}: {key}', ephemeral=True)
             else:
                 await interaction.response.send_message(f'No play key found for user {username}', ephemeral=True)
         else:
@@ -483,16 +479,14 @@ if __name__ == "__main__":
             await interaction.response.send_message("No mysql connection, unable to display account", ephemeral=True)
             return
 
-        cursor = connection.cursor()
-        cursor.execute('SELECT discord_uuid FROM play_keys WHERE key_string=%s', (key,))
-        result = cursor.fetchone()
+        uuid = get_user_id_from_key(key)
 
-        if result:
-            user = discord.utils.get(interaction.guild.members, id=int(result[0]))
+        if uuid:
+            user = discord.utils.get(interaction.guild.members, id=int(uuid))
             if user:
                 await interaction.response.send_message(f'Account name for play key `{key}`: `{user.name}`', ephemeral=True)
             else:
-                await interaction.response.send_message(f'No account found for uuid: `{result[0]}`', ephemeral=True)
+                await interaction.response.send_message(f'No account found for uuid: `{uuid}`', ephemeral=True)
         else:
             await interaction.response.send_message(f'No account found for play key: `{key}`', ephemeral=True)
     
