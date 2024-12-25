@@ -4,5 +4,7 @@ playerCntSettings.py
 charXmlPullerSettings.py
 contrabandCheckSettings.py
 playkeyBotSettings.py
+nameApprovalSettings.py
 countHistory/
+nameApproval.log
 __pycache__/
