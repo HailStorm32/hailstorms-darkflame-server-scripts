@@ -143,21 +143,24 @@ def check_names(openAIClient, nameList):
 
 
 def log_names_checked_and_rejected(rejectedNames, totalNames):
-    # Log the names checked
-    if totalNames and len(totalNames) > 0:
-        # Extract names from the tuples and convert to a comma-separated string
-        total_names_str = ", ".join([name[0] for name in totalNames])
-        name_logger.info(f"Names checked: \n {total_names_str}\n\n")
-    else:
-        name_logger.info("No names checked this round")
-    
-    # Log the names rejected
-    if rejectedNames and len(rejectedNames["namesToReject"]) > 0:
-        rejected_names_with_reasons = [{"name": entry["name"], "reason": entry["reason"]} for entry in rejectedNames["namesToReject"]]
-        rejected_names_str = json.dumps(rejected_names_with_reasons, indent=4)
-        name_logger.info(f"Names rejected:\n {rejected_names_str}\n\n")
-    else:
-        name_logger.info("No names rejected this round")
+    try:
+        # Log the names checked
+        if totalNames and len(totalNames) > 0:
+            # Extract names from the tuples and convert to a comma-separated string
+            total_names_str = ", ".join([name[0] for name in totalNames])
+            name_logger.info(f"Names checked: \n {total_names_str}\n\n")
+        else:
+            name_logger.info("No names checked this round")
+        
+        # Log the names rejected
+        if rejectedNames and len(rejectedNames["namesToReject"]) > 0:
+            rejected_names_with_reasons = [{"name": entry["name"], "reason": entry["reason"]} for entry in rejectedNames["namesToReject"]]
+            rejected_names_str = json.dumps(rejected_names_with_reasons, indent=4)
+            name_logger.info(f"Names rejected:\n {rejected_names_str}\n\n")
+        else:
+            name_logger.info("No names rejected this round")
+    except Exception as e:
+        print("Failed to log names checked and/or rejected.\nError: " + str(e))
 
 
 #------------------------------------------------------------------------------------------
@@ -172,11 +175,15 @@ if __name__ == "__main__":
     # Setup logging
     if LOG_TO_FILE:
         # Set up logging for name-related information
-        name_logger = logging.getLogger('name_logger')
-        name_logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(LOG_FILE)
-        handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
-        name_logger.addHandler(handler)
+        try:
+            name_logger = logging.getLogger('name_logger')
+            name_logger.setLevel(logging.INFO)
+            handler = logging.FileHandler(LOG_FILE)
+            handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+            name_logger.addHandler(handler)
+        except Exception as e:
+            print("Failed to set up logging for name checks. Disabling logging\nError: " + str(e))
+            LOG_TO_FILE = False
 
     openAIClient = OpenAI(api_key=API_KEY)
 
