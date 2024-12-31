@@ -6,5 +6,5 @@ contrabandCheckSettings.py
 playkeyBotSettings.py
 nameApprovalSettings.py
 countHistory/
-nameApproval.log
+*.log
 __pycache__/
