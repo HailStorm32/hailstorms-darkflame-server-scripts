@@ -16,5 +16,6 @@ cp settings/playerCntSettings_OG.py ./playerCntSettings.py
 cp settings/charXmlPullerSettings_OG.py ./charXmlPullerSettings.py
 cp settings/contrabandCheckSettings_OG.py ./contrabandCheckSettings.py
 cp settings/playkeyBotSettings_OG.py ./playkeyBotSettings.py
+cp settings/nameApprovalSettings_OG.py ./nameApprovalSettings.py
 
 echo "Done."
