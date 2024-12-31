@@ -96,15 +96,12 @@ Rescues a stuck player by modifying their xml data and placing them in a predete
 
 ##### options
 
-| location | location command |
+| location        | location command |
+|-----------------|------------------|
+| AG Landing Zone | ag1             |
+| AG Picnic Area  | ag2             |
+| NS Plaza        | ns1             |
 
-|--|--|
-
-|AG Landing Zone | ag1 |
-
-|AG Picnic Area | ag2 |
-
-|NS Plaza | ns1 |
 
   
 
@@ -257,6 +254,41 @@ Also implements player notes, allowing moderators to add, remove and display not
 - **`/unlockaccount <username_or_playkey>`**: Unlocks the account (or key if no account has been made) for the specified user
 
 > **Note:** Ensure that the bot has the necessary permissions in the server and channels it will operate in.
+
+<br>
+
+## autoNameApproval.py<br>
+
+#### Description:
+Uses OpenAI GPT4o to automatically approve and reject character and pet names every 24 hours.
+
+#### Setup:
+1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
+
+2. Copy the `nameApprovalSettings_OG.py` from `settings` to the root directory of the repo.
+
+3. Rename the file you just copied to `nameApprovalSettings.py`
+
+4. Open `nameApprovalSettings.py`
+5. Add the database credentials
+6. Add your OpenAI API key (you can get one [here](https://platform.openai.com/docs/overview))
+
+```
+
+DATABASE_IP = "localhost" #IP of the mysql database
+
+DATABASE_NAME = "darkflame" #Name of the database
+
+DATABASE_USER = "darkflame" #Name of the database user
+
+DATABASE_PASS = "passHere" #Database password
+
+API_KEY  =  "API_KEY_HERE"  #OpenAI API Key
+
+```
+
+There are further settings in the file that can be changed to your liking, including changing the prompt used and disabling logging.
+
 
 <br>
 
@@ -466,4 +498,4 @@ Writes XML data in `xmlData.txt` to the given character ID. Creates a backup of 
 
 <br>
 ----
-updated: 12/21/2024
+updated: 12/30/2024
