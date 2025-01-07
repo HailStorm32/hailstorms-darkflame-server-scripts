@@ -5,6 +5,7 @@ charXmlPullerSettings.py
 contrabandCheckSettings.py
 playkeyBotSettings.py
 nameApprovalSettings.py
+ASSEMBLY_botSettings.py
 countHistory/
 *.log
 __pycache__/

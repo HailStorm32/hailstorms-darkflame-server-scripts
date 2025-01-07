@@ -4,7 +4,53 @@ DATABASE_NAME = "nameHere" #Name of the database
 DATABASE_USER = "unameHere" #Name of the database user
 DATABASE_PASS = "passHere" #Database password
 
-API_KEY = "API_KEY_HERE"  #OpenAI API Key
+#Enable or disable the bot
+ENABLE_BOT = True
+
+#Discord Bot Token
+DISCORD_TOKEN = "TOKEN_HERE"
+
+#Channel for the bot to post messages in
+BOT_CHANNEL = "channelNameHere"
+
+#Role to ping if there is an issue with the playkey
+ROLE_TO_PING = "roleNameHere"
+
+#Role name that has the ability to run the / commands
+COMMAND_ROLE = "roleNameHere"
+
+
+OFFENSE_THRESHOLD = 3 #Number of offenses before a user flagged for review
+
+
+################################
+# Bot Periodic
+################################
+SEC_IN_HOUR = 3600
+
+PERIODIC_FREQUENCY = 60  #In seconds, how frequent the periodic task should run
+OFFENSE_REPORT_FREQ = 12 * SEC_IN_HOUR #In hours, how frequent the offense report should run 
+TASK_CHECK_FREQ = 12 * SEC_IN_HOUR  #In hours, how frequent the task check should run
+
+
+################################
+# Playkey Settings
+################################
+
+#Playkey request channel in discord
+REQUEST_CHANNEL = "channelNameHere"
+
+#Lock LU account when user leaves the Discord
+LOCK_ON_LEAVE = True
+
+
+################################
+# Name Approval Settings
+################################
+
+ENABLE_NAME_APPROVAL = False
+
+GPT_API_KEY = "API_KEY_HERE"  #OpenAI API Key
 
 SEC_IN_HOUR = 3600
 NAME_CHECK_FREQ = 24 * SEC_IN_HOUR  #In hours, how frequent the name check should run
@@ -15,9 +61,11 @@ MAX_NAMES = 100 #Max number of names to check at a time
 LOG_TO_FILE = True
 LOG_FILE = "nameApproval.log"
 
+TRACK_OFFENSES = True #Log to a user's report for each name that is flagged
+
 DEBUG = False
 
-ALLOWD_NAMES = (   #List of names that keep on getting flagged but should be allowed and their reasons:
+ALLOWED_NAMES = (   #List of names that keep on getting flagged but should be allowed and their reasons:
     """
     \nExamples of names that should be allowed, and their reasons:
 
@@ -33,7 +81,7 @@ ALLOWD_NAMES = (   #List of names that keep on getting flagged but should be all
     """
 ) 
 
-DISALLOWD_NAMES = (   #List of names that should be disallowed, and their reasons:
+DISALLOWED_NAMES = (   #List of names that should be disallowed, and their reasons:
     """
     \nExamples of names that should be disallowed, and their reasons:
 
@@ -48,7 +96,7 @@ DISALLOWD_NAMES = (   #List of names that should be disallowed, and their reason
     """
 )
 
-SYSTEM_MESSAGE = (
+NAME_APPROVAL_GPT_SYSTEM_MESSAGE = (
     """
     You are a GPT crafted for screening names in a children's game, focusing on appropriateness. 
     You evaluate names submitted through text. You excel in providing detailed cultural insights 
@@ -81,5 +129,43 @@ SYSTEM_MESSAGE = (
     """
 )
 
-FULL_SYSTEM_MESSAGE = SYSTEM_MESSAGE + ALLOWD_NAMES + DISALLOWD_NAMES
+FULL_NAME_APPROVAL_GPT_SYSTEM_MESSAGE = NAME_APPROVAL_GPT_SYSTEM_MESSAGE + ALLOWED_NAMES + DISALLOWED_NAMES
 
+
+################################
+# Whitelist Settings
+################################
+#Path to the whitelist file
+WHITELIST_FILE = "path/to/chatplus_en_us.txt"
+
+#Channel for whitelist suggestions
+WHITELIST_CHANNEL = "whitelist-suggestions"
+
+WHITELIST_GPT_SYSTEM_MESSAGE = (
+    """
+    You are a GPT crafted to assist in processing the whitelist requests for a game chat.
+    You will be given a list of messages that may contain whitelist words/strings.
+    You must ignore the messages that are not relevant to the whitelist request. 
+    If a message contains multiple words/strings, parse those out. 
+    If you come across a word, make sure to add the plural, singular, and past tense to the list.
+    You must let pass ascii based emojis like :) B) etc. in the whitelist.
+    You must let pass numbers
+
+    Remove newlines and extra spaces.
+    You must return a JSON list of the whitelist words/strings. 
+    Do not put JSON in a code block.
+    """
+)
+
+
+##############################
+# Logic DO NOT EDIT
+##############################
+import sys
+
+if PERIODIC_FREQUENCY > OFFENSE_REPORT_FREQ:
+    print("PERIODIC_FREQUENCY must be less than OFFENSE_REPORT_FREQ")
+    sys.exit(1)
+if PERIODIC_FREQUENCY > TASK_CHECK_FREQ:
+    print("PERIODIC_FREQUENCY must be less than TASK_CHECK_FREQ")
+    sys.exit(1)

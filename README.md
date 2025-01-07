@@ -8,8 +8,6 @@ These are the scripts I used for my darkflame LU server instance that was hosted
 
 <br>
 
-  
-
 ## Setup
 
 All the bash scripts pull from a file named `dbInfo.txt` located in the home directory. This file contains the credentials needed to access the server database. You will need to create the file in the home directory and fill it out the following way.
@@ -24,21 +22,11 @@ databasePassword
 
 ```
 
-  
-
-<br>
-
-<br>
-
-  
 
 ## Script Descriptions
 
-  
-
 <br>
 
-  
 
 ## approve_all.sh
 
@@ -46,11 +34,8 @@ databasePassword
 
 Approves all pending usernames and pet names. Can be edited to also approve all pending properties.
 
-  
-
 <br>
 
-  
 
 ## backupDB.sh<br>
 
@@ -95,6 +80,7 @@ Rescues a stuck player by modifying their xml data and placing them in a predete
   
 
 ##### options
+
 
 | location        | location command |
 |-----------------|------------------|
@@ -208,25 +194,57 @@ STATS_WEBHOOK_URL = "2ND_URL_HERE" #URL of the webhook to send the stats
 
 <br>
 
-  ## playkeyGiverBot.py<br>
+## ASSEMBLY_bot.py<br>
 
 #### Description:
-A Discord bot that manages and distributes play keys. Will automatically generate and distribute a play key when a user requests in the configured channel. If enabled, it will also automatically lock the LU account of a user if they leave the Discord. 
+*Automated Supervision System for Enforcement, Moderation, Basic Logs, & keY distribution (A.S.S.E.M.B.L.Y.)*
+A Discord bot that manages and distributes play keys, moderates character and pet names, keeps player records and more. 
 
-Also implements player notes, allowing moderators to add, remove and display notes for a given user.
+There are two main features combined in this script, the discord bot, and the automatic name approval. Both can be turned on/off independently by setting `ENABLE_BOT` and `ENABLE_NAME_APPROVAL` in the settings file.
+
+> **NOTE:** From here on, an all caps snake case word in a code block refers to a setting in the setting file
+
+##### Discord Bot
+
+###### Key Distribution 
+Gives keys to users and keeps track of which user has a key. It will also automatically lock the LU account of a user if they leave the Discord (if `LOCK_ON_LEAVE` enabled). 
+
+###### Player Records
+Implements player records, allowing moderators to add, remove and display notes, offenses and warnings for a given user. 
+
+###### In game Announcements
+Provides a way to send game announcements via a command. See [Game Announcement Commands](https://github.com/HailStorm32/hailstorms-darkflame-server-scripts?tab=readme-ov-file#game-announcement-commands)
+
+###### Offense Tracking
+Will keep track of the number of offenses a player has, and will escalate it if they are above the threshold `OFFENSE_THRESHOLD` .
+> NOTE: Requires `ENABLE_NAME_APPROVAL=True` and `TRACK_OFFENSES=True`
+
+###### Whitelist Updating
+Using a command, will pull whitelist suggestions from `WHITELIST_CHANNEL` and add them to `WHITELIST_FILE`. Makes use of GPT4o to parse the messages for word suggestions and add word variations. 
+
+Will also :
+ - Removes the dcf file (still requires a manual server restart for whitelist to take effect)
+ - Delete all messages in the whitelist channel after it is done
+
+
+##### Automatic Name Approval
+Uses OpenAI GPT4o to automatically approve and reject character and pet names every 24 hours (user configurable).
+There are further settings in the settings file that can be changed to your liking, including changing the prompt used and disabling logging.
+If `TRACK_OFFENSES` is enabled, it will also log an offense to the record of the player who submitted a rejected name.
+
 
 #### Setup:
 1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
 
-2. Copy the `playkeyBotSettings_OG.py` from `settings` to the root directory of the repo.
+2. Copy the `ASSEMBLY_botSettings_OG.py` from `settings` to the `ASSEMBLY_bot_files` directory of the repo.
 
-3. Rename the file you just copied to `playkeyBotSettings.py`
+3. Rename the file you just copied to `ASSEMBLY_botSettings.py`
 
-4. Open `playkeyBotSettings.py` and configure the settings
+4. Open `ASSEMBLY_botSettings.py` and configure the settings
 
 5. Set Up Discord Bot:
    - Create a new application in the [Discord Developer Portal](https://discord.com/developers/applications)
-   - Create a bot for the application and copy the bot token into `DISCORD_TOKEN` in `playkeyBotSettings.py`
+   - Create a bot for the application and copy the bot token into `DISCORD_TOKEN` in `ASSEMBLY_botSettings.py`
 		>   *You may need to go to the bot tab and regenerate the token*
 
    - Installation tab should look as follows:
@@ -238,57 +256,63 @@ Also implements player notes, allowing moderators to add, remove and display not
    ![enter image description here](https://i.imgur.com/imjMkux.png)
    - Lastly, go into the integration settings of the Discord server and make sure to assign a role that can use the commands
    - Also make sure that the channels you want the bot to have access to, also has the bot role assigned to it
-
-6. Run the Bot:
+6. Get and add an OpenAI API key (you can get one [here](https://platform.openai.com/docs/overview)) to `GPT_API_KEY`
+7. Run the Bot:
    ```sh
-   python3 playkeyGiverBot.py
+   python3 -u ASSEMBLY_bot.py
    ```
 
 #### Commands:
-- **`/addnote <username> <note>`**:  Adds a note to the specified user
-- **`/displaynotes <username>`**:  Displays all the notes for the specified user
-- **`/removenote <username> <id>`**: Removes the specific note ID from the specified user
-- **`/showkey <username>`**: Shows the playkey for the specified user
-- **`/showaccount <play_key>`**: Shows Discord account name tied to given play key
-- **`/lockaccount <username_or_playkey>`**: Locks the account (or key if no account has been made) for the specified user
-- **`/unlockaccount <username_or_playkey>`**: Unlocks the account (or key if no account has been made) for the specified user
+##### Account Commands
+- **`/lockaccount <username or play_key>`**: Locks the account of the specified user.
+- **`/unlockaccount <username or play_key>`**: Unlocks the account of the specified user.
+- **`/showkey <username>`**: Shows the play key for the specified user.
+- **`/showaccount <play_key>`**: Shows the Discord account name tied to the specified play key.
+
+##### Record Commands
+- **`/addnote <username> <note>`**: Adds a note to the specified user's record.
+- **`/addoffense <username> <offense_type> <offense_description> <action_taken>`**: Adds an offense to the specified user's record.
+- **`/addwarning <username> <reason>`**: Adds a warning to the specified user's record.
+- **`/displayrecords <username> <record_type>`**: Displays records of the specified type (Note, Offense, Warning, or All) for the specified user.
+- **`/removerecord <username> <record_type> <record_id>`**: Removes the specific record ID from the specified user's record.
+
+##### Whitelist Commands
+- **`/updatewhitelist`**: Updates the whitelist file based on messages in the whitelist channel and cleans up the channel.
+   > NOTE: Requires the bot to have the ability to manage messages in the selected `WHITELIST_CHANNEL`
+
+##### Game Announcement Commands
+- **`/sendgameannouncement <title> <message>`**: Sends a custom game announcement with a title and message.
+- **`/gameannounceupdate <minutes_to_update>`**: Sends a game announcement notifying players about an upcoming server shutdown in the specified number of minutes.
+
 
 > **Note:** Ensure that the bot has the necessary permissions in the server and channels it will operate in.
 
-<br>
-
-## autoNameApproval.py<br>
-
-#### Description:
-Uses OpenAI GPT4o to automatically approve and reject character and pet names every 24 hours.
-
-#### Setup:
-1. Navigate to the cloned repo and install the required python packages with `pip install -r requirements.txt`
-
-2. Copy the `nameApprovalSettings_OG.py` from `settings` to the root directory of the repo.
-
-3. Rename the file you just copied to `nameApprovalSettings.py`
-
-4. Open `nameApprovalSettings.py`
-5. Add the database credentials
-6. Add your OpenAI API key (you can get one [here](https://platform.openai.com/docs/overview))
-
+Would recommend running it as a systemd process like the following
 ```
+[Unit]
+# Description of the service.
+Description=ASSEMBLY LU Discord bot
+# Wait for network to start first before starting this service.
+After=network.target
+# Ensure the Darkflame server is running before starting this service.
+After=mariadb.service
 
-DATABASE_IP = "localhost" #IP of the mysql database
+[Service]
+StandardOutput=journal
+StandardError=journal
+Type=simple
+# Services should have their own, dedicated, user account.
+# The specific user that our service will run as.
+User=USER_HERE
+# The specific group that our service will run as.
+Group=GROUP_HERE
+# Full path to the player count display script
+ExecStart=/usr/bin/python3 -u path/to/hailstorms-darkflame-server-scripts/ASSEMBLY_bot.py
 
-DATABASE_NAME = "darkflame" #Name of the database
-
-DATABASE_USER = "darkflame" #Name of the database user
-
-DATABASE_PASS = "passHere" #Database password
-
-API_KEY  =  "API_KEY_HERE"  #OpenAI API Key
-
+[Install]
+# Define the behavior if the service is enabled or disabled to automatically start at boot.
+WantedBy=multi-user.target
 ```
-
-There are further settings in the file that can be changed to your liking, including changing the prompt used and disabling logging.
-
 
 <br>
 
@@ -498,4 +522,4 @@ Writes XML data in `xmlData.txt` to the given character ID. Creates a backup of 
 
 <br>
 ----
-updated: 12/30/2024
+updated: 4/25/2025
