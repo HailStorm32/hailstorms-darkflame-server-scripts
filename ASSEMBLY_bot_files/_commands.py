@@ -131,7 +131,7 @@ class BotCommands():
                 }
 
                 # Save the offense to the database
-                if self._save_record_entry(str(user.id), self.record_type.OFFENCE, offense_obj):
+                if self._save_record_entry(str(user.id), self.record_type.OFFENSE, offense_obj):
                     # Successfully added the offense, send confirmation to the user
                     await interaction.response.send_message(f'Offense added for {username}: {offense}', ephemeral=True)
 
@@ -335,7 +335,7 @@ class BotCommands():
                     # Determine the record category
                     if record == self.record_type.NOTE:
                         record_key = "notes"
-                    elif record == self.record_type.OFFENCE:
+                    elif record == self.record_type.OFFENSE:
                         record_key = "offenses"
                     elif record == self.record_type.WARNING:
                         record_key = "warnings"
