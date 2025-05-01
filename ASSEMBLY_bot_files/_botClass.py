@@ -9,7 +9,7 @@ import time
 from ASSEMBLY_bot_files._events import BotEvents
 from ASSEMBLY_bot_files._commands import BotCommands
 from ASSEMBLY_bot_files._helpers import BotHelpers
-from ASSEMBLY_bot_files.ASSEMBLY_botSettings import BOT_CHANNEL, ROLE_TO_PING
+from ASSEMBLY_bot_files.ASSEMBLY_botSettings import BOT_CHANNEL, ROLE_TO_PING, RSVD_OBJ_ID_START
 
 SECONDS_IN_DAY = 86400
 
@@ -20,7 +20,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
       - BotCommands (commands)
       - BotEvents (event listeners)
     """
-    def __init__(self, discordToken, dbConfig):
+    def __init__(self, discordToken, dbConfig, dbConfigBlu):
         """
         Initializes the AssemblyBot instance.
 
@@ -33,6 +33,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 'password': 'abc123',
                 'database': 'darkflame'
             }
+            dbConfigBlu (dict): Dictionary with MySQL connection information for BLU.
 
         Returns:
             None
@@ -49,12 +50,24 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         try:
             self._connection_pool =  mysql.connector.pooling.MySQLConnectionPool(
                 pool_name="assembly_bot_pool",
-                pool_size=5,  # Number of connections in the pool
+                pool_size=10,  # Number of connections in the pool
                 **dbConfig
             )
             print(f"{self._MODULE_NAME}: MySQL connection pool created successfully.")
         except Error as e:
             print(f"{self._MODULE_NAME}: Failed to create connection pool: {e}")
+            sys.exit(1)
+
+        # Set up BLU database connection pool
+        try:
+            self._blu_connection_pool =  mysql.connector.pooling.MySQLConnectionPool(
+                pool_name="assembly_bot_blu_pool",
+                pool_size=10,  # Number of connections in the pool
+                **dbConfigBlu
+            )
+            print(f"{self._MODULE_NAME}: MySQL BLU connection pool created successfully.")
+        except Error as e:
+            print(f"{self._MODULE_NAME}: Failed to create BLU connection pool: {e}")
             sys.exit(1)
 
         super().__init__()
@@ -69,6 +82,49 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         # Set up commands and events
         self._setup_commands()
         self._setup_events()
+
+        # Setup BLU migration table
+        db_connection = self._get_db_connection()
+        if db_connection:
+            cursor = db_connection.cursor()
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS blu_transfers ("
+                "id INT AUTO_INCREMENT PRIMARY KEY, "
+                "discord_uuid VARCHAR(255) DEFAULT NULL, "
+                "account_id INT DEFAULT NULL, "
+                "blu_account_id INT DEFAULT NULL, "
+                "migration_state INT DEFAULT 0, "
+                "attempts INT DEFAULT 0, "
+                "chosen_chars TEXT DEFAULT NULL, "
+                "error_state INT DEFAULT 0 "
+                ");"
+            )
+            db_connection.commit()
+            cursor.close()
+            db_connection.close()
+        else:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to setup BLU migration table")
+
+        # Setup migration_object_ids table
+        db_connection = self._get_db_connection()
+        if db_connection:
+            cursor = db_connection.cursor()
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS migration_object_ids ("
+                "next_avail_id INT DEFAULT 0 "
+                ");"
+            )
+            db_connection.commit()
+
+            cursor.execute("SELECT COUNT(*) FROM migration_object_ids")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                cursor.execute("INSERT INTO migration_object_ids (next_avail_id) VALUES (%s)", (RSVD_OBJ_ID_START,))
+                db_connection.commit()
+            cursor.close()
+            db_connection.close()
+        else:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to setup BLU migration table")
 
     def start_discord_bot(self):
         """
@@ -208,6 +264,55 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         else:
             print(f"{self._MODULE_NAME}: ERROR: Role {ROLE_TO_PING} not found! Unable to mention.")
 
+    async def _send_migration_selection(self, user_obj, nu_chars, blu_chars, available_slots):
+        """Send an interactive selection card to the user for selective migration.
+
+        Parameters
+        ----------
+        user_obj: discord.User
+            The Discord user to send the card to.
+        nu_chars: list
+            List of tuples ``(name, id)`` for the user's NU characters.
+        blu_chars: list
+            List of tuples ``(name, id)`` for the user's BLU characters.
+        available_slots: int
+            Number of free character slots currently available on NU.
+        """
+
+        if not self._bot_started:
+            print(f"{self._MODULE_NAME}: ERROR: Bot not started, unable to send migration selection")
+            return
+
+        embed = discord.Embed(
+            title="BLU Migration",
+            description="Select which characters you wish to migrate.",
+            color=discord.Color.blue(),
+        )
+
+        if nu_chars:
+            embed.add_field(
+                name="Your NU Characters",
+                value="\n".join([name for name, _ in nu_chars]),
+                inline=False,
+            )
+
+        embed.add_field(
+            name="Your BLU Characters",
+            value="\n".join([name for name, _ in blu_chars]) or "None",
+            inline=False,
+        )
+
+        view = self.MigrationSelectionView(
+            user_obj.id,
+            nu_chars,
+            blu_chars,
+            available_slots,
+            self,
+        )
+        message = await user_obj.send(embed=embed, view=view)
+        view.message = message  # Save message for later edits (timeout/confirm)
+        self.active_migration_views.add(view)
+
 
     ###########################
     # Discord UI Classes
@@ -325,6 +430,159 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             button.callback = callback
 
             return button
+
+    class MigrationSelectionView(discord.ui.View):
+        """Interactive view for selecting migration options."""
+
+        def __init__(self, user_id, nu_chars, blu_chars, available_slots, bot_instance, timeout=SECONDS_IN_DAY):
+            super().__init__(timeout=timeout)
+            self.user_id = user_id
+            self.bot_instance = bot_instance
+            self.available_slots = available_slots
+
+            # Track selected options so they can persist after view edits
+            self.selected_nu: set[str] = set()
+            self.selected_blu: set[str] = set()
+
+            # Build SelectOption lists for NU and BLU characters
+            nu_options = [discord.SelectOption(label=name, value=str(cid)) for name, cid in nu_chars]
+            blu_options = [discord.SelectOption(label=name, value=str(cid)) for name, cid in blu_chars]
+
+            self.blu_char_count = len(blu_options)
+            # Determine how many NU characters the user may delete and how many
+            # BLU characters can be transferred initially
+            max_delete = max(0, self.blu_char_count - available_slots)
+            max_transfer = min(self.blu_char_count, max(1, available_slots))
+
+            if nu_options and max_delete > 0:
+                self.nu_select = discord.ui.Select(
+                    placeholder="NU chars to delete",
+                    options=nu_options,
+                    min_values=0,
+                    max_values=max_delete,
+                )
+
+                async def nu_callback(interaction: discord.Interaction):
+                    # Update BLU transfer limit when NU selections change
+                    self.selected_nu = set(self.nu_select.values)
+                    new_max = min(
+                        self.blu_char_count,
+                        max(1, self.available_slots + len(self.nu_select.values)),
+                    )
+                    self.blu_select.max_values = new_max
+                    self.blu_select.placeholder = f"BLU chars to transfer (max {new_max})"
+
+                    # If the new limit is smaller than the current selection
+                    # clear the BLU selection so the user can pick again
+                    if len(self.selected_blu) > new_max:
+                        # Clear stored selections and reset option defaults so
+                        # nothing appears chosen when the view is re-rendered
+                        self.selected_blu.clear()
+                        for opt in self.blu_select.options:
+                            opt.default = False
+
+                    # Persist selections by updating option defaults
+                    for opt in self.nu_select.options:
+                        opt.default = opt.value in self.selected_nu
+                    for opt in self.blu_select.options:
+                        opt.default = opt.value in self.selected_blu
+                    await interaction.response.edit_message(view=self)
+
+                self.nu_select.callback = nu_callback
+                self.add_item(self.nu_select)
+            else:
+                self.nu_select = None
+
+            self.blu_select = discord.ui.Select(
+                placeholder=f"BLU chars to transfer (max {max_transfer})",
+                options=blu_options,
+                min_values=1,
+                max_values=max_transfer,
+            )
+
+            async def blu_callback(interaction: discord.Interaction):
+                self.selected_blu = set(self.blu_select.values)
+                await interaction.response.defer()
+
+            self.blu_select.callback = blu_callback
+            self.add_item(self.blu_select)
+
+        def _disable_all_items(self):
+            """Disable all interactive components in this view."""
+            for child in self.children:
+                child.disabled = True
+
+            if hasattr(self, "message"):
+                # Update the message with disabled components
+                return self.message.edit(view=self)
+            return None
+
+        async def on_timeout(self):
+            """Disable the view when it times out."""
+            await self._disable_all_items()
+            self.bot_instance.active_migration_views.discard(self)
+
+        @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+        async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if not self.bot_instance.migrations_enabled:
+                await interaction.response.send_message(
+                    "Migrations are currently disabled.", ephemeral=True
+                )
+                await self._disable_all_items()
+                self.bot_instance.active_migration_views.discard(self)
+                self.stop()
+                return
+
+            delete_ids = [char for char in self.selected_nu]
+            transfer_ids = [char for char in self.selected_blu]
+            allowed = self.available_slots + len(delete_ids)
+
+            if len(transfer_ids) > allowed:
+                await interaction.response.send_message(
+                    f"❌ You selected {len(transfer_ids)} BLU character(s) but only have {allowed} slot(s) available.",
+                    ephemeral=True,
+                )
+                return
+            
+            if len(transfer_ids) == 0:
+                await interaction.response.send_message(
+                    "❌ You must select at least one BLU character to transfer.",
+                    ephemeral=True,
+                )
+                return
+
+            data = {"delete_nu": delete_ids, "migrate_blu": transfer_ids}
+
+            await interaction.response.defer()
+            success = await asyncio.to_thread(
+                self.bot_instance._set_user_migration_selection,
+                self.user_id,
+                data,
+            )
+
+            if success:
+                await asyncio.to_thread(
+                    self.bot_instance._set_user_transfer_state,
+                    self.user_id,
+                    self.bot_instance.migration_state.TRANSFER_QUEUED,
+                )
+                migration_request = {
+                    "discord_uuid": self.user_id,
+                    "selective_migration": True,
+                }
+                self.bot_instance.migration_queue.put(migration_request)
+                msg = "Selection saved. Your migration will begin soon."
+
+                # Disable the view so it cannot be used again
+                await self._disable_all_items()
+            else:
+                msg = "Failed to save selection. Please contact a mythran."
+
+            await interaction.followup.send(
+                msg, ephemeral=interaction.guild is not None
+            )
+            self.bot_instance.active_migration_views.discard(self)
+            self.stop()
 
 
     def __del__(self):
