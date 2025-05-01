@@ -524,3 +524,105 @@ class BotCommands():
         async def _game_announce_update_cmd_error(interaction: discord.Interaction, error):
             if isinstance(error, discord.app_commands.MissingRole):
                 await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
+
+
+        ##############
+        # Command: listtransfers
+        ##############
+        @self._bot.tree.command(name="listtransfers", description="List active BLU migrations")
+        @discord.app_commands.describe(identifier="Optional discord name or play key")
+        @discord.app_commands.checks.has_role(COMMAND_ROLE)
+        async def _list_transfers_cmd(interaction: discord.Interaction, identifier: str | None = None):
+            if identifier:
+                if self._is_playkey(identifier):
+                    user_id = self._get_user_id_from_key(identifier)
+                    if not user_id:
+                        await interaction.response.send_message(f'No user found for play key `{identifier}`', ephemeral=True)
+                        return
+                else:
+                    member = discord.utils.get(interaction.guild.members, name=identifier)
+                    if not member:
+                        await interaction.response.send_message(f'User `{identifier}` not found', ephemeral=True)
+                        return
+                    user_id = member.id
+
+                state = await asyncio.to_thread(self._get_user_transfer_state, user_id)
+                state_name = self._migration_state_to_str(state)
+                await interaction.response.send_message(f'`{identifier}`: {state_name}', ephemeral=True)
+                return
+
+            transfers = await asyncio.to_thread(self._get_inprogress_transfers)
+            queue_snapshot = await asyncio.to_thread(self._get_queued_migrations)
+            lines = []
+            if transfers:
+                for row in transfers:
+                    member = discord.utils.get(interaction.guild.members, id=int(row['discord_uuid']))
+                    name = member.name if member else row['discord_uuid']
+                    lines.append(f'**{name}**: `{self._migration_state_to_str(row["migration_state"]) }`')
+            else:
+                lines.append('No transfers in progress.')
+
+            if queue_snapshot:
+                lines.append(f'\n**Queued migrations**: {len(queue_snapshot)}')
+
+            await interaction.response.send_message('\n'.join(lines), ephemeral=True)
+
+        @_list_transfers_cmd.error
+        async def _list_transfers_cmd_error(interaction: discord.Interaction, error):
+            if isinstance(error, discord.app_commands.MissingRole):
+                await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
+
+
+        ##############
+        # Command: disablemigrations
+        ##############
+        @self._bot.tree.command(name="disablemigrations", description="Disable new BLU migrations")
+        @discord.app_commands.checks.has_role(COMMAND_ROLE)
+        async def _disable_migrations_cmd(interaction: discord.Interaction):
+            self.migrations_enabled = False
+            await self._disable_active_migration_views()
+            await interaction.response.send_message('New migrations have been disabled.\n\nA restart of the bot is required for to re-enable', ephemeral=True)
+           
+           # Log the action to the bot channel
+            guild = interaction.guild
+            botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL)
+            if botMessageChannel:
+                await botMessageChannel.send(f'New migrations have been disabled by `{interaction.user}`.')
+            else:
+                print(f"{self._MODULE_NAME}: New migrations have been disabled by `{interaction.user}`.")
+
+        @_disable_migrations_cmd.error
+        async def _disable_migrations_cmd_error(interaction: discord.Interaction, error):
+            if isinstance(error, discord.app_commands.MissingRole):
+                await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
+
+
+        ##############
+        # Command: resetmigration
+        ##############
+        @self._bot.tree.command(name="resetmigration", description="Reset a user\'s migration state")
+        @discord.app_commands.describe(identifier="Discord username or play key")
+        @discord.app_commands.checks.has_role(COMMAND_ROLE)
+        async def _reset_migration_cmd(interaction: discord.Interaction, identifier: str):
+            if self._is_playkey(identifier):
+                user_id = self._get_user_id_from_key(identifier)
+                if not user_id:
+                    await interaction.response.send_message(f'No user found for play key `{identifier}`', ephemeral=True)
+                    return
+            else:
+                member = discord.utils.get(interaction.guild.members, name=identifier)
+                if not member:
+                    await interaction.response.send_message(f'User `{identifier}` not found', ephemeral=True)
+                    return
+                user_id = member.id
+
+            success = await asyncio.to_thread(self._set_user_transfer_state, user_id, self.migration_state.NOT_STARTED)
+            if success:
+                await interaction.response.send_message(f'Migration state reset for `{identifier}`.', ephemeral=True)
+            else:
+                await interaction.response.send_message('Failed to reset migration state.', ephemeral=True)
+
+        @_reset_migration_cmd.error
+        async def _reset_migration_cmd_error(interaction: discord.Interaction, error):
+            if isinstance(error, discord.app_commands.MissingRole):
+                await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)

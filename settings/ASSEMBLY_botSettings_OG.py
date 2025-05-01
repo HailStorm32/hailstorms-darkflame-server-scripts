@@ -4,6 +4,12 @@ DATABASE_NAME = "nameHere" #Name of the database
 DATABASE_USER = "unameHere" #Name of the database user
 DATABASE_PASS = "passHere" #Database password
 
+#Database Credentials for BLU database for transfers
+DATABASE_IP_BLU = "localhost" #IP of the mysql database
+DATABASE_USER_BLU = "unameHere" #Name of the database user
+DATABASE_PASS_BLU = "passHere" #Database password
+DATABASE_NAME_BLU = "nameHere" #Name of the database
+
 #Enable or disable the bot
 ENABLE_BOT = True
 
@@ -21,6 +27,16 @@ COMMAND_ROLE = "roleNameHere"
 
 
 OFFENSE_THRESHOLD = 3 #Number of offenses before a user flagged for review
+
+################################
+# BLU Migration Settings
+################################
+LAST_NU_OBJECT_ID = 66358 #Last NU object ID plus 1
+RSVD_OBJ_ID_START = LAST_NU_OBJECT_ID + 93000 + 10000 #last NU + last BLU + Extra
+TOTAL_RSVD_OBJ_IDS = RSVD_OBJ_ID_START - LAST_NU_OBJECT_ID
+
+# Set to False to prevent new BLU migrations from starting
+MIGRATIONS_ENABLED = True
 
 
 ################################

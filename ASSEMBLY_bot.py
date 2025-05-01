@@ -143,10 +143,17 @@ if __name__ == "__main__":
         'database': DATABASE_NAME
     }
 
+    dbConfigBlu = {
+        'host': DATABASE_IP_BLU,
+        'user': DATABASE_USER_BLU,
+        'password': DATABASE_PASS_BLU,
+        'database': DATABASE_NAME_BLU
+    }
+
     # TEMPORARY for testing purposes
     # add_offenses_to_random_user(4)
 
-    AssemblyBotInstance = AssemblyBot(DISCORD_TOKEN, dbConfig)
+    AssemblyBotInstance = AssemblyBot(DISCORD_TOKEN, dbConfig, dbConfigBlu)
 
     threads = []
 
@@ -162,6 +169,17 @@ if __name__ == "__main__":
             "thread_target": AssemblyBotInstance.start_discord_bot, 
             "thread_name": "Discord_Bot_Thread", 
             "is_daemon": False})
+    
+        # Start the migration service in a separate thread
+        migration_thread = threading.Thread(target=AssemblyBotInstance._main_migration_loop)
+        migration_thread.daemon = True
+        migration_thread.start()
+        threads.append({
+            "thread_handle": migration_thread,
+            "thread_target": AssemblyBotInstance._main_migration_loop,
+            "thread_name": "Migration_Thread",
+            "is_daemon": True
+        })
     else:
         print(MODULE_NAME + ": Discord bot is disabled")
 
@@ -221,6 +239,12 @@ if __name__ == "__main__":
         # Sleep for a while before checking again
         time.sleep(PERIODIC_FREQUENCY)
 
+
+'''
+setup:
+
+'''
+    
 
 '''
 User Record structure:
