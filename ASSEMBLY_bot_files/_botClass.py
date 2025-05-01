@@ -70,6 +70,17 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         self._setup_commands()
         self._setup_events()
 
+        # Setup BLU migration columns
+        db_connection = self._get_db_connection()
+        if db_connection:
+            cursor = db_connection.cursor()
+            cursor.execute("ALTER TABLE accounts ADD IF NOT EXISTS migration_state INT DEFAULT 0;")
+            db_connection.commit()
+            cursor.close()
+            db_connection.close()
+        else:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to setup BLU migration columns")
+
     def start_discord_bot(self):
         """
         Start the bot 

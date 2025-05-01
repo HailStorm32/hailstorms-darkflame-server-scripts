@@ -16,6 +16,28 @@ class RecordTypes:
         self.WARNING = 2
 
         self.ALL = 999
+
+class MigrationStates:
+    """
+    Enum for migration states
+    """
+    def __init__(self):       
+        self.NOT_STARTED = 0
+        self.WAITING_FOR_ACCOUNT = 1
+        self.VALIDATE_ATTEMPT_1 = 2
+        self.VALIDATE_ATTEMPT_2 = 3
+        self.VALIDATE_ATTEMPT_3 = 4
+        
+        self.TOO_MANY_ATTEMPTS = 5
+        self.ACCOUNT_VALIDATED = 6
+        self.WAITING_FOR_SELECTION = 7
+        self.TRANSFER_IN_PROGRESS = 8
+
+        self.NO_BLU_ACCOUNT = 9
+        self.NO_NEXUS_ACCOUNT = 10
+        self.COMPLETED = 11
+
+        self.STATE_COUNT = self.COMPLETED + 1
 class BotHelpers():
     """
     A mixin containing helper/utility functions, including DB logic.
@@ -23,6 +45,7 @@ class BotHelpers():
     """
     def __init__(self):
         self.record_type = RecordTypes()
+        self.migration_state = MigrationStates()
 
     ####################################################################################################
     # Helper Methods
@@ -573,3 +596,76 @@ class BotHelpers():
 
         return response_message
 
+    def _get_user_transfer_state(self, user_id):
+        """
+        Retrieves the migration state for a given user ID from the database.
+
+        Parameters:
+            user_id (str): The unique identifier of the user whose migration state is to be retrieved.
+
+        Returns:
+            migration_state (int or None): The migration state associated with the user ID if found, 
+                                            otherwise None.
+        """
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            return self.migration_state.STATE_COUNT
+
+        cursor = db_connection.cursor()
+
+        # Get play key id for the user
+        cursor.execute('SELECT id FROM play_keys WHERE discord_uuid=%s', (str(user_id),))
+        result = cursor.fetchone()
+        if not result:
+            print(f"{self._MODULE_NAME}: ERROR: No play key found for user {user_id} when getting migration state")
+            cursor.close()
+            db_connection.close()
+            return self.migration_state.STATE_COUNT
+        play_key_id = result[0]
+
+
+        cursor.execute('SELECT migration_state FROM accounts WHERE play_key_id=%s', (str(play_key_id),))
+        result = cursor.fetchone()
+        cursor.close()
+
+        db_connection.close()
+        return result[0] if result else self.migration_state.STATE_COUNT
+    
+    def _set_user_transfer_state(self, user_id, state):
+        """
+        Updates the migration state for a given user ID in the database.
+
+        Parameters:
+            user_id (str): The unique identifier of the user whose migration state is to be updated.
+            state (int): The new migration state to set for the user.
+
+        Returns:
+            success (bool): True if the migration state was successfully updated, False otherwise.
+        """
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to set migration state")
+            return False
+
+        cursor = db_connection.cursor()
+
+        # Get play key id for the user
+        cursor.execute('SELECT id FROM play_keys WHERE discord_uuid=%s', (str(user_id),))
+        result = cursor.fetchone()
+        if not result:
+            print(f"{self._MODULE_NAME}: ERROR: No play key found for user {user_id} when setting migration state")
+            cursor.close()
+            db_connection.close()
+            return False
+        play_key_id = result[0]
+
+        # Update migration state in the database
+        cursor.execute('UPDATE accounts SET migration_state=%s WHERE play_key_id=%s', (state, str(play_key_id)))
+        db_connection.commit()
+        
+        cursor.close()
+        db_connection.close()
+
+        return True
