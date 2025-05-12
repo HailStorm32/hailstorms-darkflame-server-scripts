@@ -33,8 +33,8 @@ class MigrationStates:
         self.WAITING_FOR_SELECTION = 7
         self.TRANSFER_IN_PROGRESS = 8
 
-        self.NO_BLU_ACCOUNT = 9
-        self.NO_NEXUS_ACCOUNT = 10
+        self.NO_BLU_ACCOUNT = 9 
+        self.NO_NEXUS_ACCOUNT = 10 #UNUSED
         self.COMPLETED = 11
 
         self.STATE_COUNT = self.COMPLETED + 1
@@ -688,3 +688,43 @@ class BotHelpers():
         db_connection.close()
 
         return True
+
+    def validate_blu_account(self, blu_account_name):
+        """
+        Validates a Blu account by checking if it exists in the database and retrieves the number of characters associated with it.
+
+        Parameters:
+            blu_account_name (str): The Blu account name to be validated.
+
+        Returns:
+            int: The number of characters associated with the Blu account if it exists.
+             Returns 0 if the account exists but has no characters.
+             Returns -1 if the account does not exist.
+        """
+        db_connection = self._get_blu_db_connection()
+
+        if not db_connection:
+            return False
+
+        cursor = db_connection.cursor()
+        cursor.execute('SELECT id FROM accounts WHERE name=%s', (blu_account_name,))
+        result = cursor.fetchone()
+
+        # If the account exists, return True
+        if result:
+            account_id = result[0]
+            cursor.execute('SELECT id FROM charinfo WHERE account_id=%s', (account_id,))
+            result = cursor.fetchall()
+
+            if not result or len(result) == 0:
+                ret = 0
+
+            else:
+                ret = len(result)
+        else:
+            ret = -1
+    
+        cursor.close()
+        db_connection.close()
+
+        return ret

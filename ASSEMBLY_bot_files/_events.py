@@ -2,6 +2,8 @@ import asyncio
 import discord
 from ASSEMBLY_bot_files.ASSEMBLY_botSettings import REQUEST_CHANNEL, ROLE_TO_PING, LOCK_ON_LEAVE, BOT_CHANNEL, BLU_TRANSFER_CHANNEL, SERVER_ID
 
+invalid_chars = ['@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '=', '{', '}', '[', ']', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '\\']
+
 class BotEvents():
     def __init__(self):
         super().__init__()
@@ -140,8 +142,57 @@ class BotEvents():
                 transfer_state = await asyncio.to_thread(self._get_user_transfer_state, message.author.id)
 
                 match transfer_state:
-                    case "active":
-                        await message.channel.send("You already have an active transfer request. Please wait for it to be processed.")
+                    case self.migration_state.NOT_STARTED:
+                        await message.channel.send(f"You do not have an active transfer request. Please go to the #{BLU_TRANSFER_CHANNEL} channel to start the process.")
+                        return
+                    
+                    case self.migration_state.WAITING_FOR_ACCOUNT:
+                        if message.content:
+                            # Check if the message is a valid account username
+                            if (
+                                len(message.content) < 3 or
+                                len(message.content) > 20 or
+                                any(char in message.content for char in invalid_chars)
+                                ):
+                                await message.channel.send("Invalid BLU account username. Please provide a valid username.")
+                                return
+                            
+                            # Check if the account exists and get the number of characters
+                            num_of_characters = await asyncio.to_thread(self.validate_blu_account, message.content)
+
+                            if num_of_characters > 0:
+                                await message.channel.send(f"✅ Found {num_of_characters} character(s) for possible migration.\n\nPlease send any message to continue.")
+                                await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.VALIDATE_ATTEMPT_1)
+
+                            elif num_of_characters == 0:
+                                await message.channel.send("❌ No characters found. Migration cannot proceed.")
+
+                            elif num_of_characters < 0:
+                                await message.channel.send("❌ Invalid BLU account username. Please provide a valid username.")
+                        
+                        return
+                        
+                    case self.migration_state.VALIDATE_ATTEMPT_1:
+                        pass
+
+                    case self.migration_state.VALIDATE_ATTEMPT_2:
+                        pass
+
+                    case self.migration_state.VALIDATE_ATTEMPT_3:
+                        pass
+
+                    case self.migration_state.TOO_MANY_ATTEMPTS:
+                        pass
+
+                    case self.migration_state.ACCOUNT_VALIDATED:
+                        pass
+
+                    case self.migration_state.WAITING_FOR_SELECTION:
+                        pass
+
+                    case self.migration_state.TRANSFER_IN_PROGRESS:
+                        pass
+
                     case _:
                         await message.channel.send("An error occurred while processing your request. Please try again later.")
 
