@@ -4,6 +4,12 @@ DATABASE_NAME = "nameHere" #Name of the database
 DATABASE_USER = "unameHere" #Name of the database user
 DATABASE_PASS = "passHere" #Database password
 
+#Database Credentials for BLU database for transfers
+DATABASE_IP_BLU = "localhost" #IP of the mysql database
+DATABASE_USER_BLU = "unameHere" #Name of the database user
+DATABASE_PASS_BLU = "passHere" #Database password
+DATABASE_NAME_BLU = "nameHere" #Name of the database
+
 #Enable or disable the bot
 ENABLE_BOT = True
 

@@ -69,6 +69,25 @@ class BotHelpers():
         except Exception as e:
             print(f"{self._MODULE_NAME}: ERROR: Failed to get DB connection from pool: {e}")
             return None
+        
+    def _get_blu_db_connection(self):
+        """
+        Get a database connection from the connection pool to the BLU database.
+
+        Parameters:
+            None
+
+        Returns:
+            connection (MySQLConnection or None): A MySQL connection object if successful, 
+                              or None if the connection fails.
+        """
+        try:
+            connection = self._blu_connection_pool.get_connection()
+            if connection.is_connected():
+                return connection
+        except Exception as e:
+            print(f"{self._MODULE_NAME}: ERROR: Failed to get BLU DB connection from pool: {e}")
+            return None
 
     def _lock_account(self, member_name, uuid, player_left=True):
         """

@@ -143,10 +143,17 @@ if __name__ == "__main__":
         'database': DATABASE_NAME
     }
 
+    dbConfigBlu = {
+        'host': DATABASE_IP_BLU,
+        'user': DATABASE_USER_BLU,
+        'password': DATABASE_PASS_BLU,
+        'database': DATABASE_NAME_BLU
+    }
+
     # TEMPORARY for testing purposes
     # add_offenses_to_random_user(4)
 
-    AssemblyBotInstance = AssemblyBot(DISCORD_TOKEN, dbConfig)
+    AssemblyBotInstance = AssemblyBot(DISCORD_TOKEN, dbConfig, dbConfigBlu)
 
     threads = []
 

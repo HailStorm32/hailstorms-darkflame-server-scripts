@@ -20,7 +20,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
       - BotCommands (commands)
       - BotEvents (event listeners)
     """
-    def __init__(self, discordToken, dbConfig):
+    def __init__(self, discordToken, dbConfig, dbConfigBlu):
         """
         Initializes the AssemblyBot instance.
 
@@ -33,6 +33,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 'password': 'abc123',
                 'database': 'darkflame'
             }
+            dbConfigBlu (dict): Dictionary with MySQL connection information for BLU.
 
         Returns:
             None
@@ -55,6 +56,18 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             print(f"{self._MODULE_NAME}: MySQL connection pool created successfully.")
         except Error as e:
             print(f"{self._MODULE_NAME}: Failed to create connection pool: {e}")
+            sys.exit(1)
+
+        # Set up BLU database connection pool
+        try:
+            self._blu_connection_pool =  mysql.connector.pooling.MySQLConnectionPool(
+                pool_name="assembly_bot_blu_pool",
+                pool_size=10,  # Number of connections in the pool
+                **dbConfigBlu
+            )
+            print(f"{self._MODULE_NAME}: MySQL BLU connection pool created successfully.")
+        except Error as e:
+            print(f"{self._MODULE_NAME}: Failed to create BLU connection pool: {e}")
             sys.exit(1)
 
         super().__init__()
