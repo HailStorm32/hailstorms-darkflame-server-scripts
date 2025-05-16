@@ -689,7 +689,7 @@ class BotHelpers():
 
         return True
 
-    def validate_blu_account(self, blu_account_name):
+    def _validate_blu_account(self, blu_playkey):
         """
         Validates a Blu account by checking if it exists in the database and retrieves the number of characters associated with it.
 
@@ -704,23 +704,26 @@ class BotHelpers():
         db_connection = self._get_blu_db_connection()
 
         if not db_connection:
-            return False
+            return -3
 
         cursor = db_connection.cursor()
-        cursor.execute('SELECT id FROM accounts WHERE name=%s', (blu_account_name,))
+        cursor.execute('SELECT id FROM play_keys WHERE key_string=%s', (blu_playkey,))
         result = cursor.fetchone()
 
-        # If the account exists, return True
+        # If the account exists
         if result:
-            account_id = result[0]
-            cursor.execute('SELECT id FROM charinfo WHERE account_id=%s', (account_id,))
+            # Get the account id
+            playkey_id = result[0]
+            cursor.execute('SELECT id FROM accounts WHERE play_key_id=%s', (playkey_id,))
             result = cursor.fetchall()
 
             if not result or len(result) == 0:
-                ret = 0
-
+                ret = -2
             else:
-                ret = len(result)
+                # Get the number of characters associated with the account
+                cursor.execute('SELECT COUNT(*) FROM charinfo WHERE account_id=%s', (playkey_id,))
+                result = cursor.fetchall()
+                ret = result[0][0]
         else:
             ret = -1
     
@@ -728,3 +731,34 @@ class BotHelpers():
         db_connection.close()
 
         return ret
+    
+    def _get_NU_characters(self, discord_uuid):
+        """
+        Retrieves the NU characters associated with a given Discord UUID from the database.
+
+        Parameters:
+            discord_uuid (str): The Discord UUID for which to retrieve characters.
+
+        Returns:
+            characters (list): A list of character names associated with the provided Discord UUID.
+        """
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            return None
+
+        cursor = db_connection.cursor()
+        cursor.execute('SELECT name FROM charinfo WHERE account_id IN (SELECT id FROM accounts WHERE play_key_id IN (SELECT id FROM play_keys WHERE discord_uuid=%s))', (discord_uuid,))
+        result = cursor.fetchall()
+        
+        # If there are no characters, return an empty list
+        if not result:
+            return []
+        
+        # Extract character names from the result
+        characters = [row[0] for row in result]
+        
+        cursor.close()
+        db_connection.close()
+
+        return characters

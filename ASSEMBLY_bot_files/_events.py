@@ -4,6 +4,11 @@ from ASSEMBLY_bot_files.ASSEMBLY_botSettings import REQUEST_CHANNEL, ROLE_TO_PIN
 
 invalid_chars = ['@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '=', '{', '}', '[', ']', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '\\']
 
+PLAYKEY_LENGTH = 19
+MAX_CHARACTER_SLOTS = 4
+
+accounts_being_served = set()
+
 class BotEvents():
     def __init__(self):
         super().__init__()
@@ -108,7 +113,7 @@ class BotEvents():
 
                     # DM the user to start the transfer process
                     try:
-                        await message.author.send(f'Please provide your BLU account username to begin. \n\n**NOTE: Only one BLU account can be transferred** ')
+                        await message.author.send(f'Please provide your **BLU** play key to begin. You can get your play key at https://briansbricks.lu/\n\n**NOTE: Only one BLU account can be transferred** ')
                         await message.add_reaction('📨')
                         await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.WAITING_FOR_ACCOUNT)
 
@@ -138,16 +143,71 @@ class BotEvents():
                     await message.channel.send("You are not a member of this server. Please join the server to use this bot.")
                     return
                 
+                # Check if the user is already being served
+                if message.author.id in accounts_being_served: 
+                    print(f"{self._MODULE_NAME}: ERROR: User: {message.author.id} is already being served.")
+                    return
+                else:
+                    accounts_being_served.add(message.author.id)
+
                 # Get transfer state for the user
                 transfer_state = await asyncio.to_thread(self._get_user_transfer_state, message.author.id)
+                
+                try:
+                    match transfer_state:
+                        case self.migration_state.NOT_STARTED:
+                            await message.channel.send(f"You do not have an active transfer request. Please go to the #{BLU_TRANSFER_CHANNEL} channel to start the process.")
+                            return
+                        
+                        case self.migration_state.WAITING_FOR_ACCOUNT:
+                            if message.content:
+                                # Check if key is valid
+                                if len(message.content) != PLAYKEY_LENGTH or not self._is_playkey(message.content):
+                                    await message.channel.send("❌ Invalid play key format. Please provide a valid key.")
+                                    return
+                                
+                                # Check if the account exists and get the number of characters
+                                num_of_blu_characters = await asyncio.to_thread(self._validate_blu_account, message.content)
 
-                match transfer_state:
-                    case self.migration_state.NOT_STARTED:
-                        await message.channel.send(f"You do not have an active transfer request. Please go to the #{BLU_TRANSFER_CHANNEL} channel to start the process.")
-                        return
-                    
-                    case self.migration_state.WAITING_FOR_ACCOUNT:
-                        if message.content:
+                                if num_of_blu_characters > 0:
+                                    await message.channel.send(f"✅ Found {num_of_blu_characters} character(s) for possible migration.")
+
+                                    nu_characters = await asyncio.to_thread(self._get_NU_characters, message.author.id)
+
+                                    # Check how many available character slots the user has left on NU
+                                    available_nu_slots = MAX_CHARACTER_SLOTS - len(nu_characters)
+
+                                    if available_nu_slots >= num_of_blu_characters:
+                                        await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_IN_PROGRESS)
+                                        await message.channel.send("No conflicting characters found on NU. Please send any message to proceed with migration.")
+                                        return
+
+                                    else:
+                                        await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.WAITING_FOR_SELECTION)
+                                        await message.channel.send(f"⚠️ not enough character slots available on NU. You have {available_nu_slots} slot(s) available, but {num_of_blu_characters} character(s) to transfer.\n\nPlease send any message to proceed to next step.")
+                                        return
+
+                                elif num_of_blu_characters == 0:
+                                    await message.channel.send("❌ No characters found for that account. Migration cannot proceed.")
+
+                                elif num_of_blu_characters == -1:
+                                    await message.channel.send("❌ Not a BLU play key. Please provide a BLU key.")
+
+                                elif num_of_blu_characters == -2:
+                                    await message.channel.send("❌ No account tied to play key. Migration cannot proceed.")
+
+                                elif num_of_blu_characters == -3:
+                                    await message.channel.send("⚠️ Server error #001! Please notify a mythran.")
+                            
+                            return
+
+                        case self.migration_state.TOO_MANY_ATTEMPTS:
+                            pass
+
+                        case self.migration_state.ACCOUNT_VALIDATED:
+                            pass
+
+                        case self.migration_state.WAITING_FOR_SELECTION:
                             # Check if the message is a valid account username
                             if (
                                 len(message.content) < 3 or
@@ -156,45 +216,15 @@ class BotEvents():
                                 ):
                                 await message.channel.send("Invalid BLU account username. Please provide a valid username.")
                                 return
-                            
-                            # Check if the account exists and get the number of characters
-                            num_of_characters = await asyncio.to_thread(self.validate_blu_account, message.content)
+                            pass
 
-                            if num_of_characters > 0:
-                                await message.channel.send(f"✅ Found {num_of_characters} character(s) for possible migration.\n\nPlease send any message to continue.")
-                                await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.VALIDATE_ATTEMPT_1)
+                        case self.migration_state.TRANSFER_IN_PROGRESS:
+                            pass
 
-                            elif num_of_characters == 0:
-                                await message.channel.send("❌ No characters found. Migration cannot proceed.")
-
-                            elif num_of_characters < 0:
-                                await message.channel.send("❌ Invalid BLU account username. Please provide a valid username.")
-                        
-                        return
-                        
-                    case self.migration_state.VALIDATE_ATTEMPT_1:
-                        pass
-
-                    case self.migration_state.VALIDATE_ATTEMPT_2:
-                        pass
-
-                    case self.migration_state.VALIDATE_ATTEMPT_3:
-                        pass
-
-                    case self.migration_state.TOO_MANY_ATTEMPTS:
-                        pass
-
-                    case self.migration_state.ACCOUNT_VALIDATED:
-                        pass
-
-                    case self.migration_state.WAITING_FOR_SELECTION:
-                        pass
-
-                    case self.migration_state.TRANSFER_IN_PROGRESS:
-                        pass
-
-                    case _:
-                        await message.channel.send("An error occurred while processing your request. Please try again later.")
+                        case _:
+                            await message.channel.send("An error occurred while processing your request. Please try again later.")
+                finally:
+                    accounts_being_served.remove(message.author.id)
 
         @self._bot.event
         async def on_member_remove(member):
