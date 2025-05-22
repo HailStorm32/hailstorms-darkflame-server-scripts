@@ -3,6 +3,7 @@ import random
 import re
 import requests
 import string
+import time
 from datetime import datetime
 from ASSEMBLY_bot_files.ASSEMBLY_botSettings import WHITELIST_GPT_SYSTEM_MESSAGE, DEBUG
 
@@ -85,12 +86,14 @@ class BotHelpers():
 
                 if player_left:
                     botMessageChannelMessage = f'The user `{member_name}` has left the server. **Their account has been locked.**\nTheir play key was: `{key}`'
-
-                    note_message = f'Account locked on leave. Date: {datetime.now()}'
+                    
+                    # Create a note object
+                    note_obj = {"timestamp": int(time.time()), "note": f'Account locked on leave. Date: {datetime.now()}'}
                 else:
                     botMessageChannelMessage = f'Account has been locked for user `{member_name}`.'
 
-                    note_message = f'Account locked by mythran. Date: {datetime.now()}'
+                    # Create a note object
+                    note_obj = {"timestamp": int(time.time()), "note": f'Account locked by mythran. Date: {datetime.now()}'}
             
             #If the key has not been used, deactivate it
             else:
@@ -100,14 +103,17 @@ class BotHelpers():
                 if player_left:
                     botMessageChannelMessage = f'The user `{member_name}` has left the server. Play key found, but no account. \n **Key has been deactivated.**\nTheir play key was: `{key}`'
 
-                    note_message = f'Playkey deactivated on leave. Date: {datetime.now()}'
+                    # Create a note object
+                    note_obj = {"timestamp": int(time.time()), "note": f'Playkey deactivated on leave. Date: {datetime.now()}'}
+                    
                 else:
                     botMessageChannelMessage = f'Playkey for user `{member_name}` has been deactivated. No account found.'
 
-                    note_message = f'Playkey deactivated by mythran. Date: {datetime.now()}'
+                    # Create a note object
+                    note_obj = {"timestamp": int(time.time()), "note": f'Playkey deactivated by mythran. Date: {datetime.now()}'}
             
             #Save a note for the user that their account/key was locked
-            self._save_record_entry(str(uuid), self.record_type.NOTE, note_message)
+            self._save_record_entry(str(uuid), self.record_type.NOTE, note_obj)
 
         #If the user does not have a play key
         else:
@@ -156,7 +162,8 @@ class BotHelpers():
 
                 botMessageChannelMessage = f'Account unlocked for user `{member_name}`.'
 
-                note_message = f'Account unlocked by mythran. Date: {datetime.now()}'
+                # Create a note object
+                note_obj = {"timestamp": int(time.time()), "note": f'Account unlocked by mythran. Date: {datetime.now()}'}
 
             # Reactivate the play key if it was deactivated
             else:
@@ -165,10 +172,11 @@ class BotHelpers():
 
                 botMessageChannelMessage = f'Playkey for user `{member_name}` has been reactivated. No account found.'
 
-                note_message = f'Playkey reactivated by mythran. Date: {datetime.now()}'
+                # Create a note object
+                note_obj = {"timestamp": int(time.time()), "note": f'Playkey reactivated by mythran. Date: {datetime.now()}'}
             
             # Save a note for the user that their account/key was unlocked/reactivated
-            self._save_record_entry(str(uuid), self.record_type.NOTE, note_message)
+            self._save_record_entry(str(uuid), self.record_type.NOTE, note_obj)
 
         # If the user does not have a play key
         else:
