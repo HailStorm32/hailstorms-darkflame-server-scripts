@@ -615,16 +615,16 @@ class BotHelpers():
 
         return response_message
 
-    def _get_user_transfer_state(self, user_id):
+    def _get_user_transfer_state(self, discord_uuid):
         """
         Retrieves the migration state for a given user ID from the database.
 
         Parameters:
-            user_id (str): The unique identifier of the user whose migration state is to be retrieved.
+            discord_uuid (str): The Discord UUID of the user whose migration state is to be retrieved.
 
         Returns:
             migration_state (int or None): The migration state associated with the user ID if found, 
-                                            otherwise None.
+                                            otherwise STATE_COUNT.
         """
         db_connection = self._get_db_connection()
 
@@ -633,27 +633,41 @@ class BotHelpers():
 
         cursor = db_connection.cursor()
 
-        # Get play key id for the user
-        cursor.execute('SELECT id FROM play_keys WHERE discord_uuid=%s', (str(user_id),))
+        # Get state for the user
+        cursor.execute('SELECT migration_state FROM blu_transfers WHERE discord_uuid=%s', (str(discord_uuid),))
         result = cursor.fetchone()
+
+        # If they dont have a row, create a new entry for the user with NOT_STARTED state
         if not result:
-            print(f"{self._MODULE_NAME}: ERROR: No play key found for user {user_id} when getting migration state")
+            print(f"{self._MODULE_NAME}: WARNING: No column found for user {discord_uuid} when getting migration state. Defaulting to NOT_STARTED and creating new entry.")
+
+            try:
+                # Get play account id from the play key id for the user
+                cursor.execute('SELECT id FROM accounts WHERE play_key_id IN (SELECT id FROM play_keys WHERE discord_uuid=%s)', (str(discord_uuid),))
+                play_key_id_row = cursor.fetchone()
+                play_key_id_result = play_key_id_row[0] if play_key_id_row else None
+
+                if not play_key_id_result:
+                    raise Exception(f"No play key found for user {discord_uuid} when creating new entry in blu_transfers table.")
+                
+                # Create a new entry for the user with NOT_STARTED state
+                cursor.execute('INSERT INTO blu_transfers (account_id, discord_uuid, migration_state) VALUES (%s, %s, %s)', (play_key_id_result, str(discord_uuid), self.migration_state.NOT_STARTED))
+                db_connection.commit()
+            except Exception as e:  
+                print(f"{self._MODULE_NAME}: ERROR: Failed to create new entry for user {discord_uuid} in blu_transfers table: {e}")
+                cursor.close()
+                db_connection.close()
+                return self.migration_state.STATE_COUNT
+
             cursor.close()
             db_connection.close()
-            return self.migration_state.STATE_COUNT
-        play_key_id = result[0]
+            return self.migration_state.NOT_STARTED
 
-
-        cursor.execute('SELECT migration_state FROM accounts WHERE play_key_id=%s', (str(play_key_id),))
-        result = cursor.fetchone()
-        cursor.close()
-
-        db_connection.close()
-        return result[0] if result else self.migration_state.STATE_COUNT
+        return result[0] if result[0] else self.migration_state.STATE_COUNT
     
     def _set_user_transfer_state(self, user_id, state):
         """
-        Updates the migration state for a given user ID in the database.
+        Updates the migration state for a given user ID in the blu_transfers table.
 
         Parameters:
             user_id (str): The unique identifier of the user whose migration state is to be updated.
@@ -670,25 +684,22 @@ class BotHelpers():
 
         cursor = db_connection.cursor()
 
-        # Get play key id for the user
-        cursor.execute('SELECT id FROM play_keys WHERE discord_uuid=%s', (str(user_id),))
-        result = cursor.fetchone()
-        if not result:
-            print(f"{self._MODULE_NAME}: ERROR: No play key found for user {user_id} when setting migration state")
+        # Update migration state in the blu_transfers table
+        cursor.execute('UPDATE blu_transfers SET migration_state=%s WHERE discord_uuid=%s', (state, str(user_id)))
+        db_connection.commit()
+        
+        if cursor.rowcount == 0:
+            print(f"{self._MODULE_NAME}: ERROR: No blu_transfers row found for user {user_id} when setting migration state")
             cursor.close()
             db_connection.close()
             return False
-        play_key_id = result[0]
 
-        # Update migration state in the database
-        cursor.execute('UPDATE accounts SET migration_state=%s WHERE play_key_id=%s', (state, str(play_key_id)))
-        db_connection.commit()
-        
         cursor.close()
         db_connection.close()
 
         return True
 
+    #TODO: update to return the blu account id as well
     def _validate_blu_account(self, blu_playkey):
         """
         Validates a Blu account by checking if it exists in the database and retrieves the number of characters associated with it.
