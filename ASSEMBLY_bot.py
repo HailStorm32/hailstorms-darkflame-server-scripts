@@ -156,7 +156,12 @@ if __name__ == "__main__":
         # Start the discord bot in a separate thread
         bot_thread = threading.Thread(target=AssemblyBotInstance.start_discord_bot)
         bot_thread.start()
-        threads.append(bot_thread)
+        threads.append(
+            {
+            "thread_handle": bot_thread, 
+            "thread_target": AssemblyBotInstance.start_discord_bot, 
+            "thread_name": "Discord_Bot_Thread", 
+            "is_daemon": False})
     else:
         print(MODULE_NAME + ": Discord bot is disabled")
 
@@ -166,7 +171,11 @@ if __name__ == "__main__":
         name_approval_thread = threading.Thread(target=name_approval.main)
         name_approval_thread.daemon = True # Daemonize the thread so it stops when the main thread stops
         name_approval_thread.start()
-        threads.append(name_approval_thread)
+        threads.append({
+            "thread_handle": name_approval_thread, 
+            "thread_target": name_approval.main, 
+            "thread_name": "name_approval_thread", 
+            "is_daemon": True})
     else:
         print(MODULE_NAME + ": Name approval service is disabled")
 
@@ -199,9 +208,13 @@ if __name__ == "__main__":
         # Check if any threads are dead and restart them
         if time.time() > task_check_target:
             for thread in threads:
-                if not thread.is_alive():
-                    print(MODULE_NAME + ": WARNING: Thread " + str(thread) + " is dead, restarting...")
-                    thread.start()
+                if not thread["thread_handle"].is_alive():
+                    print(MODULE_NAME + ": WARNING: Thread " + str(thread["thread_name"]) + " is dead, restarting...")
+                    new_thread = threading.Thread(target=thread["thread_target"])
+                    new_thread.daemon = thread["is_daemon"]
+                    new_thread.start()
+                    thread["thread_handle"] = new_thread
+                    print(MODULE_NAME + ": Thread " + str(thread["thread_name"]) + " restarted successfully")
             
             task_check_target = time.time() + TASK_CHECK_FREQ
 
