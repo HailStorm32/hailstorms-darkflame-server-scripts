@@ -17,7 +17,7 @@ def getCharStatus(charID, activityDict):
     #and only look at the most recent entry for each character
     for entry in reversed(activityDict):
         #If the character ID matches and they are online 
-        if entry["character_id"] == charID and entry["activity"] == 0:
+        if entry["character_id"] == charID and (entry["activity"] == 0 or entry["activity"] == 2):
             return {"isOnline": True, "world": entry["map_id"]}
 
         #If the character ID matches and they are online 
