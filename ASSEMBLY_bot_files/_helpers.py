@@ -702,20 +702,25 @@ class BotHelpers():
     #TODO: update to return the blu account id as well
     def _validate_blu_account(self, blu_playkey):
         """
-        Validates a Blu account by checking if it exists in the database and retrieves the number of characters associated with it.
+        Validates a Blu play key by checking if it exists in the Blu database and retrieves the number of characters associated with it.
 
         Parameters:
-            blu_account_name (str): The Blu account name to be validated.
+            blu_playkey (str): The Blu play key to be validated.
 
         Returns:
-            int: The number of characters associated with the Blu account if it exists.
-             Returns 0 if the account exists but has no characters.
-             Returns -1 if the account does not exist.
+            list: [number_of_characters, blu_account_id]
+              number_of_characters: int - Number of characters if account exists,
+                              -1 if play key does not exist,
+                              -2 if play key exists but no account,
+                              -3 if DB connection fails.
+              blu_account_id: int - Blu account ID if found, otherwise -1.
         """
         db_connection = self._get_blu_db_connection()
 
+        account_id = -1
+
         if not db_connection:
-            return -3
+            return [-3, account_id]
 
         cursor = db_connection.cursor()
         cursor.execute('SELECT id FROM play_keys WHERE key_string=%s', (blu_playkey,))
@@ -723,25 +728,59 @@ class BotHelpers():
 
         # If the account exists
         if result:
-            # Get the account id
+            # Get the account id from the play key id
             playkey_id = result[0]
             cursor.execute('SELECT id FROM accounts WHERE play_key_id=%s', (playkey_id,))
             result = cursor.fetchall()
 
             if not result or len(result) == 0:
-                ret = -2
+                ret = [-2, account_id]
             else:
+                account_id = result[0][0]
+
                 # Get the number of characters associated with the account
-                cursor.execute('SELECT COUNT(*) FROM charinfo WHERE account_id=%s', (playkey_id,))
+                cursor.execute('SELECT COUNT(*) FROM charinfo WHERE account_id=%s', (account_id,))
                 result = cursor.fetchall()
-                ret = result[0][0]
+                ret = [result[0][0], account_id]
         else:
-            ret = -1
+            ret = [-1, account_id]
     
         cursor.close()
         db_connection.close()
 
         return ret
+    
+    def _set_user_blu_account_id(self, discord_uuid, blu_account_id):
+        """
+        Sets the Blu account ID for a given Discord UUID in the database.
+
+        Parameters:
+            discord_uuid (str): The Discord UUID of the user.
+            blu_account_id (int): The Blu account ID to be set for the user.
+
+        Returns:
+            success (bool): True if the Blu account ID was successfully set, False otherwise.
+        """
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to set Blu account ID")
+            return False
+
+        cursor = db_connection.cursor()
+
+        # Update the Blu account ID in the blu_transfers table
+        cursor.execute('UPDATE blu_transfers SET blu_account_id=%s WHERE discord_uuid=%s', (blu_account_id, str(discord_uuid)))
+        db_connection.commit()
+        
+        if cursor.rowcount == 0:
+            print(f"{self._MODULE_NAME}: ERROR: No blu_transfers row found for user {discord_uuid} when setting Blu account ID")
+            cursor.close()
+            db_connection.close()
+            return False
+        cursor.close()
+        db_connection.close()
+        return True
     
     def _get_NU_characters(self, discord_uuid):
         """

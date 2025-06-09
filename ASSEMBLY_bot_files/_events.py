@@ -9,6 +9,12 @@ MAX_CHARACTER_SLOTS = 4
 
 accounts_being_served = set()
 
+'''
+Error codes for migration state:
+001: Failure to connect to database when validating BLU account
+002: Failed to save BLU account ID. See log for details.
+'''
+
 class BotEvents():
     def __init__(self):
         super().__init__()
@@ -167,10 +173,17 @@ class BotEvents():
                                     return
                                 
                                 # Check if the account exists and get the number of characters
-                                num_of_blu_characters = await asyncio.to_thread(self._validate_blu_account, message.content)
+                                num_of_blu_characters, blu_account_id = await asyncio.to_thread(self._validate_blu_account, message.content)
 
                                 if num_of_blu_characters > 0:
                                     await message.channel.send(f"✅ Found {num_of_blu_characters} character(s) for possible migration.")
+
+                                    # Save the BLU account ID for later use
+                                    ret = await asyncio.to_thread(self._set_user_blu_account_id, message.author.id, blu_account_id)
+
+                                    if not ret:
+                                        await message.channel.send("⚠️ Server error #002! Please notify a mythran.")
+                                        return
 
                                     nu_characters = await asyncio.to_thread(self._get_NU_characters, message.author.id)
 
