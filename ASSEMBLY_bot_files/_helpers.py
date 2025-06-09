@@ -4,7 +4,10 @@ import re
 import requests
 import string
 from datetime import datetime
-from ASSEMBLY_bot_files.ASSEMBLY_botSettings import WHITELIST_GPT_SYSTEM_MESSAGE, DEBUG
+from ASSEMBLY_bot_files.ASSEMBLY_botSettings import WHITELIST_GPT_SYSTEM_MESSAGE, DEBUG, RSVD_OBJ_ID_START, TOTAL_RSVD_OBJ_IDS
+
+BASE_CHAR_XML = '''<obj v="1"><mf hc="84" hs="1" hd="0" t="15" l="3" hdc="0" cd="27" lh="24357904" rh="23910596" es="1" ess="2" ms="2"/><char acct="%ID%" cc="0" gm="0" ft="0" llog="1749445712" ls="0" lzx="-626.5847" lzy="613.3515" lzz="-28.6374" lzrx="0.0" lzry="0.7015" lzrz="0.0" lzrw="0.7126" stt="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;"><vl><l id="1000" cid="0"/></vl></char><dest hm="4" hc="4" im="0" ic="0" am="0" ac="0" d="0"/><inv><bag><b t="0" m="20"/><b t="1" m="40"/><b t="2" m="240"/><b t="3" m="240"/><b t="14" m="40"/></bag><items><in t="0"><i l="4517" id="1152921510479211844" s="0" c="1" eq="1" b="1"/><i l="2515" id="1152921510412760301" s="1" c="1" eq="1" b="1"/></in></items></inv><lvl l="1" cv="1" sb="500"/><flag></flag></obj>'''
+
 
 class RecordTypes:
     """
@@ -27,15 +30,16 @@ class MigrationStates:
         self.VALIDATE_ATTEMPT_1 = 2
         self.VALIDATE_ATTEMPT_2 = 3
         self.VALIDATE_ATTEMPT_3 = 4
-        
+
         self.TOO_MANY_ATTEMPTS = 5
         self.ACCOUNT_VALIDATED = 6
         self.WAITING_FOR_SELECTION = 7
         self.TRANSFER_IN_PROGRESS = 8
 
-        self.NO_BLU_ACCOUNT = 9 
-        self.NO_NEXUS_ACCOUNT = 10 #UNUSED
-        self.COMPLETED = 11
+        self.NO_MORE_OBJ_IDS = 9
+        self.NO_BLU_ACCOUNT = 10
+        self.NO_NEXUS_ACCOUNT = 11  # UNUSED
+        self.COMPLETED = 12
 
         self.STATE_COUNT = self.COMPLETED + 1
 class BotHelpers():
@@ -46,6 +50,7 @@ class BotHelpers():
     def __init__(self):
         self.record_type = RecordTypes()
         self.migration_state = MigrationStates()
+        self.MAX_CHARACTER_SLOTS = 4
 
     ####################################################################################################
     # Helper Methods
@@ -663,7 +668,7 @@ class BotHelpers():
             db_connection.close()
             return self.migration_state.NOT_STARTED
 
-        return result[0] if result[0] else self.migration_state.STATE_COUNT
+        return result[0] if result[0] < self.migration_state.STATE_COUNT else self.migration_state.STATE_COUNT
     
     def _set_user_transfer_state(self, user_id, state):
         """
@@ -699,7 +704,6 @@ class BotHelpers():
 
         return True
 
-    #TODO: update to return the blu account id as well
     def _validate_blu_account(self, blu_playkey):
         """
         Validates a Blu play key by checking if it exists in the Blu database and retrieves the number of characters associated with it.
@@ -812,3 +816,156 @@ class BotHelpers():
         db_connection.close()
 
         return characters
+    
+    ####################################################################################################
+    # Functions for executing transfer
+    ####################################################################################################
+
+    ############################---EXCEPTIONS---######################################
+    class ObjectIDRangeError(Exception):
+        """
+        Raised when an object ID is out of the reserved range.
+        """
+        def __init__(self, message, object_id=None):
+            super().__init__(message)
+            self.message = message
+            self.object_id = object_id
+
+    class DatabaseConnectionError(Exception):
+        """
+        Raised when a database connection cannot be established.
+        """
+        def __init__(self, message):
+            super().__init__(message)
+            self.message = message
+    
+    class DatabaseFetchError(Exception):
+        """
+        Raised when a database fetch operation fails.
+        """
+        def __init__(self, message):
+            super().__init__(message)
+            self.message = message
+
+    class NoAvailableCharacterSlotsError(Exception):
+        """
+        Raised when a user already has the maximum number of characters.
+        """
+        def __init__(self, message):
+            super().__init__(message)
+            self.message = message
+
+    ##############################################################################
+
+    def _get_object_id(self):
+        """
+        Retrieves the next available object ID from the migration_object_ids table and increments it.
+
+        Returns:
+            object_id (int): The next available object ID if found and within the reserved range.
+
+        Raises:
+            DatabaseConnectionError: If a DB connection cannot be established.
+            ObjectIDRangeError: If the object ID is out of the reserved range.
+            DatabaseFetchError: If no available object ID is found in the table.
+        """
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            raise self.DatabaseConnectionError("No DB connection available, unable to get object ID")
+
+        cursor = db_connection.cursor()
+        cursor.execute('SELECT next_avail_id FROM migration_object_ids;')
+        result = cursor.fetchone()
+
+        if result:
+            object_id = result[0]
+
+            # Ensure the object ID is within the reserved range
+            if object_id < RSVD_OBJ_ID_START or object_id > TOTAL_RSVD_OBJ_IDS:
+                cursor.close()
+                db_connection.close()
+                raise self.ObjectIDRangeError(f"Object ID {object_id} is out of reserved range.", object_id)
+
+            # Increment the next available object ID for future use
+            cursor.execute('UPDATE migration_object_ids SET next_avail_id=%s;', (object_id + 1,))
+            db_connection.commit()
+
+            cursor.close()
+            db_connection.close()
+            return object_id
+        
+        else:
+            cursor.close()
+            db_connection.close()
+            raise self.DatabaseFetchError("No available object ID found in migration_object_ids table.")
+
+    def _create_new_character(self, discord_uuid, nu_account_id):
+        """
+        Creates a new character in the NU database for the specified Discord UUID and NU account ID.
+
+        Parameters:
+            discord_uuid (str): The Discord UUID of the user.
+            nu_account_id (int): The NU account ID to be used for creating the new character.
+
+        Returns:
+            object_id (int): The object ID of the newly created character.
+
+        Raises:
+            DatabaseConnectionError: If a DB connection cannot be established.
+            NoAvailableCharacterSlotsError: If the user already has the maximum number of characters.
+            ObjectIDRangeError: If the object ID is out of the reserved range.
+            DatabaseFetchError: If no available object ID is found in the table.
+        """
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            raise self.DatabaseConnectionError("No Blu DB connection available")
+
+        cursor = db_connection.cursor()
+
+        try:
+            # Ensure there is space for the new character
+            nu_characters = self._get_NU_characters(discord_uuid)
+
+            if nu_characters is None:
+                raise Exception(f"Failed to retrieve NU characters for Discord UUID {discord_uuid}")
+            elif self.MAX_CHARACTER_SLOTS - len(nu_characters) <= 0:
+                raise self.NoAvailableCharacterSlotsError(f"User {discord_uuid} already has the maximum number of characters ({self.MAX_CHARACTER_SLOTS}).")
+            
+            # Grab the next available object ID for the new character
+            object_id = self._get_object_id()
+
+            # Create new character entry in the charinfo table
+            cursor.execute('INSERT INTO charinfo (id, account_id, name, pending_name, needs_rename) VALUES (%s, %s, %s, %s, %s);', (object_id, nu_account_id, f"{object_id}", "", 1))
+            db_connection.commit()
+            print(f"{self._MODULE_NAME}: Successfully created new charxml entry with ID {object_id} for account ID {nu_account_id}")
+
+            # Create new character xml in the charxml table
+            char_xml = str(BASE_CHAR_XML)
+            char_xml = char_xml.replace("%ID%", str(nu_account_id))
+
+            cursor.execute('INSERT INTO charxml (id, xml_data) VALUES (%s, %s);', (object_id, char_xml))
+            db_connection.commit()
+            print(f"{self._MODULE_NAME}: Successfully created new charxml entry with ID {object_id} for account ID {nu_account_id}")
+
+            return object_id
+
+        finally:
+            if cursor:
+                cursor.close()
+            if db_connection:
+                db_connection.close()
+
+
+    def _main_migration_loop():
+        """
+        Main migration loop that processes users in the migration queue and performs necessary actions.
+
+        This function continuously checks for users in the migration queue, retrieves their information,
+        and performs the migration process for each user until the queue is empty.
+        """
+        # This function is a placeholder for the main migration loop logic.
+        # It should be implemented to handle the migration process for users in the queue.
+        pass
+    

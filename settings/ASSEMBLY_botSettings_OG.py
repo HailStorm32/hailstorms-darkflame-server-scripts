@@ -28,6 +28,12 @@ COMMAND_ROLE = "roleNameHere"
 
 OFFENSE_THRESHOLD = 3 #Number of offenses before a user flagged for review
 
+################################
+# BLU Migration Settings
+################################
+RSVD_OBJ_ID_START = 49770 #Last NU object ID
+TOTAL_RSVD_OBJ_IDS = 49770 + 93000 + 10000 #last NU + last BLU + Extra
+
 
 ################################
 # Bot Periodic

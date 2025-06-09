@@ -9,7 +9,7 @@ import time
 from ASSEMBLY_bot_files._events import BotEvents
 from ASSEMBLY_bot_files._commands import BotCommands
 from ASSEMBLY_bot_files._helpers import BotHelpers
-from ASSEMBLY_bot_files.ASSEMBLY_botSettings import BOT_CHANNEL, ROLE_TO_PING
+from ASSEMBLY_bot_files.ASSEMBLY_botSettings import BOT_CHANNEL, ROLE_TO_PING, RSVD_OBJ_ID_START
 
 SECONDS_IN_DAY = 86400
 
@@ -50,7 +50,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         try:
             self._connection_pool =  mysql.connector.pooling.MySQLConnectionPool(
                 pool_name="assembly_bot_pool",
-                pool_size=5,  # Number of connections in the pool
+                pool_size=10,  # Number of connections in the pool
                 **dbConfig
             )
             print(f"{self._MODULE_NAME}: MySQL connection pool created successfully.")
@@ -100,6 +100,27 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 ");"
             )
             db_connection.commit()
+            cursor.close()
+            db_connection.close()
+        else:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to setup BLU migration table")
+
+        # Setup migration_object_ids table
+        db_connection = self._get_db_connection()
+        if db_connection:
+            cursor = db_connection.cursor()
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS migration_object_ids ("
+                "next_avail_id INT DEFAULT 0 "
+                ");"
+            )
+            db_connection.commit()
+
+            cursor.execute("SELECT COUNT(*) FROM migration_object_ids")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                cursor.execute("INSERT INTO migration_object_ids (next_avail_id) VALUES (%s)", (RSVD_OBJ_ID_START,))
+                db_connection.commit()
             cursor.close()
             db_connection.close()
         else:

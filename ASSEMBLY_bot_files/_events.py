@@ -13,6 +13,7 @@ accounts_being_served = set()
 Error codes for migration state:
 001: Failure to connect to database when validating BLU account
 002: Failed to save BLU account ID. See log for details.
+003: Ran out of reserved object IDs for migration
 '''
 
 class BotEvents():
@@ -188,7 +189,7 @@ class BotEvents():
                                     nu_characters = await asyncio.to_thread(self._get_NU_characters, message.author.id)
 
                                     # Check how many available character slots the user has left on NU
-                                    available_nu_slots = MAX_CHARACTER_SLOTS - len(nu_characters)
+                                    available_nu_slots = self.MAX_CHARACTER_SLOTS - len(nu_characters)
 
                                     if available_nu_slots >= num_of_blu_characters:
                                         await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_IN_PROGRESS)
