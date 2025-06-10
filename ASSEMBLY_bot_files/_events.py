@@ -167,6 +167,8 @@ class BotEvents():
                             return
                         
                         case self.migration_state.WAITING_FOR_ACCOUNT:
+                            # TODO: Lock their account
+
                             if message.content:
                                 # Check if key is valid
                                 if len(message.content) != PLAYKEY_LENGTH or not self._is_playkey(message.content):
@@ -192,8 +194,17 @@ class BotEvents():
                                     available_nu_slots = self.MAX_CHARACTER_SLOTS - len(nu_characters)
 
                                     if available_nu_slots >= num_of_blu_characters:
-                                        await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_IN_PROGRESS)
-                                        await message.channel.send("No conflicting characters found on NU. Please send any message to proceed with migration.")
+                                        migration_request = {
+                                            "discord_uuid": message.author.id,
+                                            "selective_migration": False,
+                                        }
+
+                                        self.migration_queue.put(migration_request)
+                                        print(f"{self._MODULE_NAME}: Migration request queued for user: {message.author.id}")
+
+                                        await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_QUEUED)
+                                        await message.channel.send("Your migration request has been queued. Please wait for the migration to complete.\n\nYou will be notified when the migration is complete.")
+
                                         return
 
                                     else:
@@ -213,6 +224,10 @@ class BotEvents():
                                 elif num_of_blu_characters == -3:
                                     await message.channel.send("⚠️ Server error #001! Please notify a mythran.")
                             
+                            return
+
+                        case self.migration_state.TRANSFER_QUEUED:
+                            await message.channel.send("Your migration request is still queued. Please wait for the migration to complete.\n\nYou will be notified when the migration is complete.")
                             return
 
                         case self.migration_state.TOO_MANY_ATTEMPTS:

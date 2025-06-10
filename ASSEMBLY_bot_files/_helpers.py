@@ -4,6 +4,8 @@ import re
 import requests
 import string
 from datetime import datetime
+import queue
+import time
 from ASSEMBLY_bot_files.ASSEMBLY_botSettings import WHITELIST_GPT_SYSTEM_MESSAGE, DEBUG, RSVD_OBJ_ID_START, TOTAL_RSVD_OBJ_IDS
 
 BASE_CHAR_XML = '''<obj v="1"><mf hc="84" hs="1" hd="0" t="15" l="3" hdc="0" cd="27" lh="24357904" rh="23910596" es="1" ess="2" ms="2"/><char acct="%ID%" cc="0" gm="0" ft="0" llog="1749445712" ls="0" lzx="-626.5847" lzy="613.3515" lzz="-28.6374" lzrx="0.0" lzry="0.7015" lzrz="0.0" lzrw="0.7126" stt="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;"><vl><l id="1000" cid="0"/></vl></char><dest hm="4" hc="4" im="0" ic="0" am="0" ac="0" d="0"/><inv><bag><b t="0" m="20"/><b t="1" m="40"/><b t="2" m="240"/><b t="3" m="240"/><b t="14" m="40"/></bag><items><in t="0"><i l="4517" id="1152921510479211844" s="0" c="1" eq="1" b="1"/><i l="2515" id="1152921510412760301" s="1" c="1" eq="1" b="1"/></in></items></inv><lvl l="1" cv="1" sb="500"/><flag></flag></obj>'''
@@ -34,12 +36,14 @@ class MigrationStates:
         self.TOO_MANY_ATTEMPTS = 5
         self.ACCOUNT_VALIDATED = 6
         self.WAITING_FOR_SELECTION = 7
-        self.TRANSFER_IN_PROGRESS = 8
+        self.TRANSFER_QUEUED = 8
+        self.TRANSFER_IN_PROGRESS = 9
 
-        self.NO_MORE_OBJ_IDS = 9
-        self.NO_BLU_ACCOUNT = 10
-        self.NO_NEXUS_ACCOUNT = 11  # UNUSED
-        self.COMPLETED = 12
+        self.NO_MORE_OBJ_IDS = 10
+        self.NO_BLU_ACCOUNT = 11
+        self.NO_NEXUS_ACCOUNT = 12  # UNUSED
+        self.ERROR_STATE = 13  
+        self.COMPLETED = 14
 
         self.STATE_COUNT = self.COMPLETED + 1
 class BotHelpers():
@@ -51,6 +55,7 @@ class BotHelpers():
         self.record_type = RecordTypes()
         self.migration_state = MigrationStates()
         self.MAX_CHARACTER_SLOTS = 4
+        self.migration_queue = queue.Queue()
 
     ####################################################################################################
     # Helper Methods
@@ -816,6 +821,37 @@ class BotHelpers():
         db_connection.close()
 
         return characters
+
+    def _get_BLU_characters(self, blu_account_id):
+        """
+        Retrieves the BLU characters associated with a given Blu account ID from the database.
+
+        Parameters:
+            blu_account_id (int): The Blu account ID for which to retrieve characters.
+
+        Returns:
+            characters (list): A list of character names associated with the provided Blu account ID.
+        """
+        db_connection = self._get_blu_db_connection()
+
+        if not db_connection:
+            return None
+
+        cursor = db_connection.cursor()
+        cursor.execute('SELECT name FROM charinfo WHERE account_id=%s', (blu_account_id,))
+        result = cursor.fetchall()
+        
+        # If there are no characters, return an empty list
+        if not result:
+            return []
+        
+        # Extract character names from the result
+        characters = [row[0] for row in result]
+        
+        cursor.close()
+        db_connection.close()
+
+        return characters
     
     ####################################################################################################
     # Functions for executing transfer
@@ -939,7 +975,7 @@ class BotHelpers():
             # Create new character entry in the charinfo table
             cursor.execute('INSERT INTO charinfo (id, account_id, name, pending_name, needs_rename) VALUES (%s, %s, %s, %s, %s);', (object_id, nu_account_id, f"{object_id}", "", 1))
             db_connection.commit()
-            print(f"{self._MODULE_NAME}: Successfully created new charxml entry with ID {object_id} for account ID {nu_account_id}")
+            print(f"{self._MODULE_NAME}: Successfully created new charxml entry with ID {object_id} for discord ID {discord_uuid}")
 
             # Create new character xml in the charxml table
             char_xml = str(BASE_CHAR_XML)
@@ -947,7 +983,7 @@ class BotHelpers():
 
             cursor.execute('INSERT INTO charxml (id, xml_data) VALUES (%s, %s);', (object_id, char_xml))
             db_connection.commit()
-            print(f"{self._MODULE_NAME}: Successfully created new charxml entry with ID {object_id} for account ID {nu_account_id}")
+            print(f"{self._MODULE_NAME}: Successfully created new charxml entry with ID {object_id} for discord ID {discord_uuid}")
 
             return object_id
 
@@ -958,14 +994,99 @@ class BotHelpers():
                 db_connection.close()
 
 
-    def _main_migration_loop():
+    def _main_migration_loop(self):
         """
         Main migration loop that processes users in the migration queue and performs necessary actions.
 
         This function continuously checks for users in the migration queue, retrieves their information,
         and performs the migration process for each user until the queue is empty.
         """
-        # This function is a placeholder for the main migration loop logic.
-        # It should be implemented to handle the migration process for users in the queue.
-        pass
-    
+        print(f"{self._MODULE_NAME}: Starting main migration loop...")
+
+        nu_db_connection = None
+        blu_db_connection = None
+        cursor = None
+
+        while(True):
+           if not self.migration_queue.empty():
+                try:
+                    # Setup the DB connections
+                    nu_db_connection = self._get_db_connection()
+                    if not nu_db_connection:
+                        print(f"{self._MODULE_NAME}: ERROR: No DB connection available for migration loop")
+                        return
+                    
+                    blu_db_connection = self._get_blu_db_connection()
+                    if not blu_db_connection:
+                        print(f"{self._MODULE_NAME}: ERROR: No DB connection available for migration loop")
+                        return
+
+                    # Get the next migration request from the queue
+                    migration_request = self.migration_queue.get()
+
+                    discord_uuid = migration_request["discord_uuid"]
+                    print(f"{self._MODULE_NAME}: Processing migration request for user {discord_uuid}")
+
+                    # Get the migration info for the user
+                    cursor = nu_db_connection.cursor()
+                    cursor.execute('SELECT * FROM blu_transfers WHERE discord_uuid=%s', (discord_uuid,))
+                    result = cursor.fetchone()
+                    if not result:
+                        print(f"{self._MODULE_NAME}: ERROR: No migration entry found for user {discord_uuid} when executing transfer. Skipping...")
+                        continue
+
+                    nu_account_id = result[2]
+                    blu_account_id = result[3]
+                    migration_state = result[4]
+                    chosen_characters = json.loads(result[6]) if result[6] else None # Will be None if we are not doing selective migration
+
+                    # Run the migration
+                    if not migration_request["selective_migration"]:
+                        # If selective migration is not enabled, migrate over all BLU characters
+                        blu_characters = self._get_BLU_characters(blu_account_id)
+
+                        for character in blu_characters:
+                            # Create a new character in NU
+                            new_char_id = self._create_new_character(discord_uuid, nu_account_id)
+                        
+
+                    else:
+                        # TODO: Implement selective migration
+                        pass
+
+                
+                except self.ObjectIDRangeError as e:
+                    print(f"{self._MODULE_NAME}: ERROR: {e.message} Object ID: {e.object_id}")
+                    # TODO: Log error to the database
+                    continue
+                except self.DatabaseConnectionError as e:
+                    print(f"{self._MODULE_NAME}: ERROR: {e.message}")
+                    continue
+                except self.DatabaseFetchError as e:
+                    print(f"{self._MODULE_NAME}: ERROR: {e.message}")
+                    # TODO: Log error to the database
+                    continue
+                except self.NoAvailableCharacterSlotsError as e:
+                    print(f"{self._MODULE_NAME}: ERROR: {e.message}")
+                    # TODO: Log error to the database
+                    continue
+                except Exception as e:
+                    print(f"{self._MODULE_NAME}: ERROR: An unexpected error occurred during migration: {str(e)}")
+
+                finally:
+                    if cursor:
+                        cursor.close()
+                    if nu_db_connection:
+                        nu_db_connection.close()
+                    if blu_db_connection:
+                        blu_db_connection.close()
+            
+           else:
+                time.sleep(5)
+
+'''
+migration_struct = {
+    "discord_uuid": "123456789", # The Discord UUID of the user
+    "selective_migration": False,  # If True, only migrate specific characters
+}
+'''

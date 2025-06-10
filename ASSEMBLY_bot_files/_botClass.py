@@ -95,8 +95,8 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 "blu_account_id INT DEFAULT NULL, "
                 "migration_state INT DEFAULT 0, "
                 "attempts INT DEFAULT 0, "
-                "chosen_nu_chars TEXT DEFAULT NULL, "
-                "chosen_blu_chars TEXT DEFAULT NULL"
+                "chosen_chars TEXT DEFAULT NULL, "
+                "error_state INT DEFAULT 0 "
                 ");"
             )
             db_connection.commit()

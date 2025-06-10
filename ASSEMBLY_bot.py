@@ -164,6 +164,12 @@ if __name__ == "__main__":
         bot_thread = threading.Thread(target=AssemblyBotInstance.start_discord_bot)
         bot_thread.start()
         threads.append(bot_thread)
+
+        # Start the migration service in a separate thread
+        migration_thread = threading.Thread(target=AssemblyBotInstance._main_migration_loop)
+        migration_thread.daemon = True
+        migration_thread.start()
+        threads.append(migration_thread)
     else:
         print(MODULE_NAME + ": Discord bot is disabled")
 
