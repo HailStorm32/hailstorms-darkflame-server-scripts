@@ -16,6 +16,9 @@ ENABLE_BOT = True
 #Discord Bot Token
 DISCORD_TOKEN = "TOKEN_HERE"
 
+#Server ID
+SERVER_ID = 12345678901234567890 #Replace with your server ID
+
 #Channel for the bot to post messages in
 BOT_CHANNEL = "channelNameHere"
 
