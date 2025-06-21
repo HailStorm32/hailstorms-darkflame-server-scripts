@@ -584,8 +584,8 @@ class BotCommands():
         async def _disable_migrations_cmd(interaction: discord.Interaction):
             self.migrations_enabled = False
             await self._disable_active_migration_views()
-            await interaction.response.send_message('New migrations have been disabled.\n\nA restart of the bot is required for to re-enable', ephemeral=True)
-           
+            await interaction.response.send_message('New migrations have been disabled.\n\nA restart of the bot is required to re-enable\n\n**Please wait a few minutes for in progress migrations to complete before restarting or shutting down**', ephemeral=True)
+
            # Log the action to the bot channel
             guild = interaction.guild
             botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL)
