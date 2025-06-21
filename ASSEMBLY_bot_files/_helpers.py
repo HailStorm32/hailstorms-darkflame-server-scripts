@@ -1544,9 +1544,9 @@ class BotHelpers():
             #############################################
             cleaned_xml = xmltodict.unparse(xml_dict)
 
-            #debug write to file
-            with open(f"debug_charxml_{blu_character_id}.xml", "w") as f:
-                xmltodict.unparse(xml_dict, pretty=True, output=f)
+            # #debug write to file
+            # with open(f"debug_charxml_{blu_character_id}.xml", "w") as f:
+            #     xmltodict.unparse(xml_dict, pretty=True, output=f)
 
             return cleaned_xml
 
@@ -2087,6 +2087,19 @@ class BotHelpers():
                     continue
 
                 except Exception as e:
+                    try:
+                        self._set_user_transfer_state(discord_uuid, self.migration_state.ERROR_STATE, 5)
+
+                        # Send message to bot channel that migration failed
+                        bot_channel = discord.utils.get(self._bot.get_all_channels(), name=BOT_CHANNEL)
+                        if bot_channel:
+                            coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message} Object ID: {e.object_id}")
+                            asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
+                        else:
+                            print(f"{self._MODULE_NAME} {MIGRATION_TAG}: WARNING: Bot channel not found. Unable to send migration failure message.")  
+                    except Exception as e2:
+                        print(f"{self._MODULE_NAME} {MIGRATION_TAG}: ERROR: Failed to send migration failure message to bot channel: {str(e2)}")  
+
                     print(f"{self._MODULE_NAME} {MIGRATION_TAG}: ERROR: An unexpected error occurred during migration: {str(e)}")
 
                 finally:
