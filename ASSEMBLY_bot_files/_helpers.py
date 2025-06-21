@@ -914,7 +914,7 @@ class BotHelpers():
         cursor = db_connection.cursor(dictionary=True)
         cursor.execute(
             (
-                'SELECT discord_uuid, migration_state '
+                'SELECT discord_uuid, migration_state, error_state '
                 'FROM blu_transfers '
                 'WHERE migration_state > %s AND migration_state != %s'
             ),

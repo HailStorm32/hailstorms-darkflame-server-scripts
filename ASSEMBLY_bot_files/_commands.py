@@ -558,7 +558,10 @@ class BotCommands():
                 for row in transfers:
                     member = discord.utils.get(interaction.guild.members, id=int(row['discord_uuid']))
                     name = member.name if member else row['discord_uuid']
-                    lines.append(f'**{name}**: `{self._migration_state_to_str(row["migration_state"]) }`')
+                    if row['migration_state'] != self._migration_state.ERROR_STATE:
+                        lines.append(f'**{name}**: `{self._migration_state_to_str(row["migration_state"]) }`')
+                    else:
+                        lines.append(f'**{name}**: `{self._migration_state_to_str(row["migration_state"]) }` - Error Code: [{row["error_state"]}]')
             else:
                 lines.append('No transfers in progress.')
 
