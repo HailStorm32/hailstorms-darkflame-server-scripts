@@ -178,26 +178,30 @@ class BotEvents():
                 else:
                     accounts_being_served.add(message.author.id)
 
-                # Get transfer state for the user
-                transfer_state = await asyncio.to_thread(
-                    self._get_user_transfer_state, message.author.id
-                )
-
-                if (
-                    not self.migrations_enabled
-                    and transfer_state
-                    not in (
-                        self.migration_state.NOT_STARTED,
-                        self.migration_state.COMPLETED,
-                        self.migration_state.ERROR_STATE,
-                    )
-                ):
-                    await message.channel.send(
-                        "Migrations are currently disabled. Please try again later."
-                    )
-                    return
                 
                 try:
+                    # Get transfer state for the user
+                    transfer_state = await asyncio.to_thread(
+                        self._get_user_transfer_state, message.author.id
+                    )
+
+                    # Dont allow migration if migrations are disabled
+                    if (
+                        not self.migrations_enabled
+                        and transfer_state
+                        not in (
+                            self.migration_state.NOT_STARTED,
+                            self.migration_state.TRANSFER_QUEUED,
+                            self.migration_request.TRANSFER_IN_PROGRESS,
+                            self.migration_state.COMPLETED,
+                            self.migration_state.ERROR_STATE,
+                        )
+                    ):
+                        await message.channel.send(
+                            "Migrations are currently disabled. Please try again later."
+                        )
+                        return
+
                     match transfer_state:
                         case self.migration_state.NOT_STARTED:
                             await message.channel.send(f"You do not have an active transfer request. Please go to the #{BLU_TRANSFER_CHANNEL} channel to start the process.")
