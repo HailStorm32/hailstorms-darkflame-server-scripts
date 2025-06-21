@@ -608,7 +608,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
 
             async def _enable_confirm(self):
                 try:
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(3)
                 except asyncio.CancelledError:
                     return
                 self.confirm_btn.disabled = False
@@ -641,9 +641,15 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                         "selective_migration": True,
                     }
                     self.parent.bot_instance.migration_queue.put(migration_request)
-                    msg = "Selection saved. Your migration will begin soon. Your account will remain locked during migration."
+                    msg = "Selection saved. Your migration request has been queued. Please wait for the migration to finish.\n\nYou will be notified when the migration is complete."
                     await self.parent._disable_all_items()
                 else:
+                    await asyncio.to_thread(
+                        self.parent.bot_instance._set_user_transfer_state,
+                        self.parent.user_id,
+                        self.parent.bot_instance.migration_state.ERROR_STATE,
+                        10
+                    )
                     msg = "Failed to save selection. Please contact a mythran."
 
                 await interaction.followup.send(msg)
