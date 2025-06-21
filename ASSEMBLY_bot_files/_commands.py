@@ -615,8 +615,19 @@ class BotCommands():
                     await interaction.response.send_message(f'User `{identifier}` not found', ephemeral=True)
                     return
                 user_id = member.id
-
-            success = await asyncio.to_thread(self._set_user_transfer_state, user_id, self.migration_state.NOT_STARTED)
+            
+            # Reset the migration state in the database by deleting their row in the blu_transfers table
+            db_connection = self._get_db_connection()
+            if not db_connection:
+                await interaction.response.send_message("No mysql connection, unable to reset migration state", ephemeral=True)
+                return
+            cursor = db_connection.cursor()
+            cursor.execute('DELETE FROM blu_transfers WHERE discord_uuid=%s', (str(user_id),))
+            db_connection.commit()
+            success = cursor.rowcount > 0
+            cursor.close()
+            db_connection.close()
+            
             if success:
                 await interaction.response.send_message(f'Migration state reset for `{identifier}`.', ephemeral=True)
             else:
