@@ -12,6 +12,7 @@ accounts_being_served = set()
 
 '''
 Error codes for migration state:
+000: No error
 001: Failure to connect to database when validating BLU account
 002: Failed to save BLU account ID. See log for details.
 003: object ID is out of range
@@ -20,6 +21,7 @@ Error codes for migration state:
 006: Corrupt character xml
 007: No NU characters found for user, when it was expected
 008: No BLU characters found for user, when it was expected
+009: Unexpected error occurred during migration
 '''
 
 class BotEvents():
