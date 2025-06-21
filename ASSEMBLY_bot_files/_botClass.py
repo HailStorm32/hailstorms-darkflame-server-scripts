@@ -444,6 +444,10 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             self.selected_nu: set[str] = set()
             self.selected_blu: set[str] = set()
 
+            # Keep mapping of id -> name for summary/confirmation
+            self.nu_id_to_name = {str(cid): name for name, cid in nu_chars}
+            self.blu_id_to_name = {str(cid): name for name, cid in blu_chars}
+
             # Build SelectOption lists for NU and BLU characters
             nu_options = [discord.SelectOption(label=name, value=str(cid)) for name, cid in nu_chars]
             blu_options = [discord.SelectOption(label=name, value=str(cid)) for name, cid in blu_chars]
@@ -551,38 +555,115 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 )
                 return
 
-            data = {"delete_nu": delete_ids, "migrate_blu": transfer_ids}
+            summary_lines = []
+            if transfer_ids:
+                summary_lines.append("**BLU characters to transfer:**")
+                for cid in transfer_ids:
+                    summary_lines.append(f"- {self.blu_id_to_name.get(cid, cid)} (`{cid}`)")
+            if delete_ids:
+                summary_lines.append("\n**NU characters to delete:**")
+                for cid in delete_ids:
+                    summary_lines.append(f"- {self.nu_id_to_name.get(cid, cid)} (`{cid}`)")
 
-            await interaction.response.defer()
-            success = await asyncio.to_thread(
-                self.bot_instance._set_user_migration_selection,
-                self.user_id,
-                data,
-            )
+            view = self.FinalConfirmView(self, delete_ids, transfer_ids)
+            msg = "You are about to begin the migration with the following selections:\n" + "\n".join(summary_lines)
+            msg += "\n\nClick **Finalize Transfer** below to continue."
+            await interaction.response.send_message(msg, view=view)
+            view.message = await interaction.original_response()
 
-            if success:
-                await asyncio.to_thread(
-                    self.bot_instance._set_user_transfer_state,
-                    self.user_id,
-                    self.bot_instance.migration_state.TRANSFER_QUEUED,
+        class FinalConfirmView(discord.ui.View):
+            """View for confirming the migration after a short delay."""
+
+            def __init__(self, parent, delete_ids, transfer_ids, timeout=60):
+                super().__init__(timeout=timeout)
+                self.parent = parent
+                self.delete_ids = delete_ids
+                self.transfer_ids = transfer_ids
+                self.confirm_btn = discord.ui.Button(
+                    label="Finalize Transfer",
+                    style=discord.ButtonStyle.green,
+                    disabled=True,
                 )
-                migration_request = {
-                    "discord_uuid": self.user_id,
-                    "selective_migration": True,
-                }
-                self.bot_instance.migration_queue.put(migration_request)
-                msg = "Selection saved. Your migration will begin soon."
+                self.cancel_btn = discord.ui.Button(
+                    label="Cancel", style=discord.ButtonStyle.red
+                )
+                self.confirm_btn.callback = self._finalize
+                self.cancel_btn.callback = self._cancel
+                self.add_item(self.confirm_btn)
+                self.add_item(self.cancel_btn)
+                self.delay_task = asyncio.create_task(self._enable_confirm())
 
-                # Disable the view so it cannot be used again
+            async def on_timeout(self):
                 await self._disable_all_items()
-            else:
-                msg = "Failed to save selection. Please contact a mythran."
 
-            await interaction.followup.send(
-                msg, ephemeral=interaction.guild is not None
-            )
-            self.bot_instance.active_migration_views.discard(self)
-            self.stop()
+            async def _disable_all_items(self):
+                for child in self.children:
+                    child.disabled = True
+
+                if hasattr(self, "message"):
+                    try:
+                        await self.message.edit(view=self)
+                    except discord.NotFound:
+                        pass
+
+            async def _enable_confirm(self):
+                try:
+                    await asyncio.sleep(5)
+                except asyncio.CancelledError:
+                    return
+                self.confirm_btn.disabled = False
+                if hasattr(self, "message"):
+                    try:
+                        await self.message.edit(view=self)
+                    except discord.NotFound:
+                        pass
+
+            async def _finalize(self, interaction: discord.Interaction):
+                if hasattr(self, "delay_task"):
+                    self.delay_task.cancel()
+                await self._disable_all_items()
+                await interaction.response.defer()
+                data = {"delete_nu": self.delete_ids, "migrate_blu": self.transfer_ids}
+                success = await asyncio.to_thread(
+                    self.parent.bot_instance._set_user_migration_selection,
+                    self.parent.user_id,
+                    data,
+                )
+
+                if success:
+                    await asyncio.to_thread(
+                        self.parent.bot_instance._set_user_transfer_state,
+                        self.parent.user_id,
+                        self.parent.bot_instance.migration_state.TRANSFER_QUEUED,
+                    )
+                    migration_request = {
+                        "discord_uuid": self.parent.user_id,
+                        "selective_migration": True,
+                    }
+                    self.parent.bot_instance.migration_queue.put(migration_request)
+                    msg = "Selection saved. Your migration will begin soon. Your account will remain locked during migration."
+                    await self.parent._disable_all_items()
+                else:
+                    msg = "Failed to save selection. Please contact a mythran."
+
+                await interaction.followup.send(msg)
+                self.parent.bot_instance.active_migration_views.discard(self.parent)
+                self.parent.stop()
+                self.stop()
+
+            async def _cancel(self, interaction: discord.Interaction):
+                if hasattr(self, "delay_task"):
+                    self.delay_task.cancel()
+                if hasattr(self, "message"):
+                    try:
+                        await self.message.delete()
+                    except discord.NotFound:
+                        pass
+                await interaction.response.send_message(
+                    "Migration cancelled. You may adjust your selections.",
+                    ephemeral=True,
+                )
+                self.stop()
 
 
     def __del__(self):

@@ -239,13 +239,13 @@ class BotEvents():
                                         print(f"{self._MODULE_NAME}: Migration request queued for user: {message.author.id}")
 
                                         await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_QUEUED)
-                                        await message.channel.send("Your migration request has been queued. Please wait for the migration to complete.\n\nYou will be notified when the migration is complete.")
+                                        await message.channel.send("Your migration request has been queued. Your account is now locked until the process completes. Please wait for the migration to finish.\n\nYou will be notified when the migration is complete.")
 
                                         return
 
                                     else:
                                         await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.SELECTION_BEGIN)
-                                        await message.channel.send(f"⚠️ not enough character slots available on NU. You have {available_nu_slots} slot(s) available, but {num_of_blu_characters} character(s) to transfer.\n\nPlease send any message to proceed to next step.")
+                                        await message.channel.send(f"⚠️ not enough character slots available on NU. You have {available_nu_slots} slot(s) available, but {num_of_blu_characters} character(s) to transfer. Your account has been locked for migration.\n\nPlease send any message to proceed to the next step.")
                                         return
 
                                 elif num_of_blu_characters == 0:

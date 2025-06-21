@@ -1070,12 +1070,40 @@ class BotHelpers():
             characters = [(row[0], row[1]) for row in result]
 
             return characters
-        
+
         finally:
             if cursor:
                 cursor.close()
             if db_connection:
                 db_connection.close()
+
+    def _get_BLU_character_name(self, char_id):
+        """Return the name of a BLU character given its ID."""
+        db = self._get_blu_db_connection()
+        if not db:
+            return str(char_id)
+        try:
+            cur = db.cursor()
+            cur.execute('SELECT name FROM charinfo WHERE id=%s', (char_id,))
+            row = cur.fetchone()
+            return row[0] if row else str(char_id)
+        finally:
+            cur.close()
+            db.close()
+
+    def _get_NU_character_name(self, char_id):
+        """Return the name of a NU character given its ID."""
+        db = self._get_db_connection()
+        if not db:
+            return str(char_id)
+        try:
+            cur = db.cursor()
+            cur.execute('SELECT name FROM charinfo WHERE id=%s', (char_id,))
+            row = cur.fetchone()
+            return row[0] if row else str(char_id)
+        finally:
+            cur.close()
+            db.close()
     
     ####################################################################################################
     # Functions for executing transfer
@@ -1980,8 +2008,11 @@ class BotHelpers():
                         chars_to_delete = []
                         chars_to_migrate = [char[1] for char in blu_characters]  # Get the character IDs from the BLU characters
 
+                    char_map = []
                     for char_id in chars_to_migrate:
-                        
+
+                        blu_name = self._get_BLU_character_name(char_id)
+
                         # Create a new character in NU for the BLU character to transfer on top of
                         new_char_id = self._create_new_character(discord_uuid, nu_account_id)
 
@@ -1998,6 +2029,7 @@ class BotHelpers():
                         nu_db_cursor.execute('UPDATE charxml SET xml_data=%s WHERE id=%s', (cleaned_xml, new_char_id))
                         nu_db_connection.commit()
                         print(f"{self._MODULE_NAME} {MIGRATION_TAG}: Successfully migrated character [{char_id}] to NU with new ID [{new_char_id}] for user {discord_uuid}")
+                        char_map.append((blu_name, new_char_id))
 
                     # Set the transfer state for the user to COMPLETED
                     self._set_user_transfer_state(discord_uuid, self.migration_state.COMPLETED)
@@ -2008,7 +2040,14 @@ class BotHelpers():
                     # Send message to user that migration is complete
                     user = self._bot.get_user(int(discord_uuid))
                     if user:
-                        notification_message = "**Your BLU -> NU migration is complete!**\n\nIf you have any issues, please contact a Mythran."
+                        lines = ["**Your BLU -> NU migration is complete!**"]
+                        if char_map:
+                            lines.append("")
+                            lines.append("**Character Mapping:**")
+                            for name, nid in char_map:
+                                lines.append(f"- {name} -> `{nid}`")
+                        lines.append("\nIf you have any issues, please contact a Mythran.")
+                        notification_message = "\n".join(lines)
                         coroutine = user.send(notification_message)
                         asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
                     else:
