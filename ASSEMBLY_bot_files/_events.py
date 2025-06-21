@@ -21,7 +21,8 @@ Error codes for migration state:
 006: Corrupt character xml
 007: No NU characters found for user, when it was expected
 008: No BLU characters found for user, when it was expected
-009: Unexpected error occurred during migration
+009: Unexpected error occurred during migration, see log for details
+010: Failed to save migrations selection, see log for details
 '''
 
 class BotEvents():
@@ -138,7 +139,7 @@ class BotEvents():
 
                         # DM the user to start the transfer process
                         try:
-                            await message.author.send(f'Please provide your **BLU** play key to begin. You can get your play key at https://briansbricks.lu/\n\n**NOTE: Only one BLU account can be transferred** ')
+                            await message.author.send(f'Please provide your **BLU** play key to begin. You can get your play key at https://briansbricks.lu/\n\n**NOTE: Only one BLU account can be transferred**\n\n__Your account is now locked for migration__, and you will not be able to use it until the migration is complete.\n\nIf you need assistance, please @ a {ROLE_TO_PING}.')
                             await message.add_reaction('📨')
                             await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.WAITING_FOR_ACCOUNT)
 
@@ -241,13 +242,13 @@ class BotEvents():
                                         print(f"{self._MODULE_NAME}: Migration request queued for user: {message.author.id}")
 
                                         await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_QUEUED)
-                                        await message.channel.send("Your migration request has been queued. Your account is now locked until the process completes. Please wait for the migration to finish.\n\nYou will be notified when the migration is complete.")
+                                        await message.channel.send("Your migration request has been queued. Please wait for the migration to finish.\n\nYou will be notified when the migration is complete.")
 
                                         return
 
                                     else:
                                         await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.SELECTION_BEGIN)
-                                        await message.channel.send(f"⚠️ not enough character slots available on NU. You have {available_nu_slots} slot(s) available, but {num_of_blu_characters} character(s) to transfer. Your account has been locked for migration.\n\nPlease send any message to proceed to the next step.")
+                                        await message.channel.send(f"\n⚠️ not enough character slots available on NU. You have {available_nu_slots} slot(s) available, but {num_of_blu_characters} character(s) to transfer. \n\nPlease send any message to proceed to the next step where you can select which characters to transfer.")
                                         return
 
                                 elif num_of_blu_characters == 0:

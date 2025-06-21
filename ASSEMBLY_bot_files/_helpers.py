@@ -12,6 +12,7 @@ import time
 import xmltodict
 import xml.etree.ElementTree as ET
 from ASSEMBLY_bot_files.ASSEMBLY_botSettings import (
+    ROLE_TO_PING,
     WHITELIST_GPT_SYSTEM_MESSAGE,
     DEBUG,
     RSVD_OBJ_ID_START,
@@ -2046,7 +2047,7 @@ class BotHelpers():
                             lines.append("**Character Mapping:**")
                             for name, nid in char_map:
                                 lines.append(f"- {name} -> `{nid}`")
-                        lines.append("\nIf you have any issues, please contact a Mythran.")
+                        lines.append(f"\nIf you have any issues, please contact a {ROLE_TO_PING}.")
                         notification_message = "\n".join(lines)
                         coroutine = user.send(notification_message)
                         asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
