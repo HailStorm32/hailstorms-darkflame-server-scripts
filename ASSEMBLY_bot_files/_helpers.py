@@ -2106,7 +2106,7 @@ class BotHelpers():
                     # Send message to bot channel that migration failed
                     bot_channel = discord.utils.get(self._bot.get_all_channels(), name=BOT_CHANNEL)
                     if bot_channel:
-                        coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message} Object ID: {e.object_id}")
+                        coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message}")
                         asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
                     else:
                         print(f"{self._MODULE_NAME} {MIGRATION_TAG}: WARNING: Bot channel not found. Unable to send migration failure message.")    
@@ -2119,7 +2119,7 @@ class BotHelpers():
                     # Send message to bot channel that migration failed
                     bot_channel = discord.utils.get(self._bot.get_all_channels(), name=BOT_CHANNEL)
                     if bot_channel:
-                        coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message} Object ID: {e.object_id}")
+                        coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message}")
                         asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
                     else:
                         print(f"{self._MODULE_NAME} {MIGRATION_TAG}: WARNING: Bot channel not found. Unable to send migration failure message.")    
@@ -2127,12 +2127,12 @@ class BotHelpers():
 
                 except Exception as e:
                     try:
-                        self._set_user_transfer_state(discord_uuid, self.migration_state.ERROR_STATE, 5)
+                        self._set_user_transfer_state(discord_uuid, self.migration_state.ERROR_STATE, 9)
 
                         # Send message to bot channel that migration failed
                         bot_channel = discord.utils.get(self._bot.get_all_channels(), name=BOT_CHANNEL)
                         if bot_channel:
-                            coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message} Object ID: {e.object_id}")
+                            coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message}")
                             asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
                         else:
                             print(f"{self._MODULE_NAME} {MIGRATION_TAG}: WARNING: Bot channel not found. Unable to send migration failure message.")  
