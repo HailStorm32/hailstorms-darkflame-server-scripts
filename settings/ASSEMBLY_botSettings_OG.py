@@ -19,6 +19,9 @@ DISCORD_TOKEN = "TOKEN_HERE"
 #Channel for the bot to post messages in
 BOT_CHANNEL = "channelNameHere"
 
+#Channel for BLU transfer requests
+BLU_TRANSFER_CHANNEL = "transfer-requests"
+
 #Role to ping if there is an issue with the playkey
 ROLE_TO_PING = "roleNameHere"
 
