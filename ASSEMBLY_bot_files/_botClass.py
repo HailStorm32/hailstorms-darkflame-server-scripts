@@ -285,7 +285,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
 
         embed = discord.Embed(
             title="BLU Migration",
-            description="Select which characters you wish to migrate.",
+            description="Select which characters you wish to migrate.\n\n**WARNING:** This action is irreversible, choose carefully!\n\n",
             color=discord.Color.blue(),
         )
 
