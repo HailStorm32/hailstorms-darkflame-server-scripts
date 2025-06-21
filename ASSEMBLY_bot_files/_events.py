@@ -123,8 +123,6 @@ class BotEvents():
                             await message.add_reaction('❌')
                             thread = await message.create_thread(name="No Account", auto_archive_duration=1440)  # Auto-archive after 24 hours
                             await thread.send(f'{message.author.mention}, you don\'t have an account with Nexus Universe. Please create an account, then come back and try again.\nIf you need assistance, please @ a {ROLE_TO_PING}.')
-                            cursor.close()
-                            db_connection.close()
                             return
                         
                         # Check if the user has an active transfer request
@@ -134,8 +132,6 @@ class BotEvents():
                             await message.add_reaction('❌')
                             thread = await message.create_thread(name="Transfer Already Active", auto_archive_duration=1440) # Auto-archive after 24 hours
                             await thread.send(f'{message.author.mention}, you already have an active transfer request. Please refer to your DMs.\nIf you need assistance, please @ a {ROLE_TO_PING}.')
-                            cursor.close()
-                            db_connection.close()
                             return
 
                         # DM the user to start the transfer process
