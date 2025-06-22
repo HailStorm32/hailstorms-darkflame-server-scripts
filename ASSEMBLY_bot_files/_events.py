@@ -83,6 +83,7 @@ class BotEvents():
                             new_key = self._generate_new_key() # Generate a new key
                             cursor.execute('INSERT INTO play_keys (key_string, key_uses, active, discord_uuid) VALUES (%s, %s, %s, %s)',
                                         (new_key, 1, 1, uuid_str))
+                            db_connection.commit()
 
                             try:
                                 await message.author.send(f'Your Nexus Universe play key is: `{new_key}`\n\n**NOTE: If you leave the Discord, your account/key will be locked!** ')
@@ -108,6 +109,7 @@ class BotEvents():
                         return
 
                     db_connection = self._get_db_connection()
+                    cursor = None
 
                     try:
                         if not db_connection:
