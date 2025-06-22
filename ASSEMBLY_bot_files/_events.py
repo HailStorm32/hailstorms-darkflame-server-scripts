@@ -190,7 +190,7 @@ class BotEvents():
                         not in (
                             self.migration_state.NOT_STARTED,
                             self.migration_state.TRANSFER_QUEUED,
-                            self.migration_request.TRANSFER_IN_PROGRESS,
+                            self.migration_state.TRANSFER_IN_PROGRESS,
                             self.migration_state.COMPLETED,
                             self.migration_state.ERROR_STATE,
                         )
