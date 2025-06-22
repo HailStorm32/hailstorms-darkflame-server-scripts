@@ -786,44 +786,53 @@ class BotHelpers():
         nu_db_connection = self._get_db_connection()
 
         account_id = -1
+        blu_cursor = None
+        nu_cursor = None
 
         if not blu_db_connection or not nu_db_connection:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to validate BLU account")
             return [-3, account_id]
 
-        blu_cursor = blu_db_connection.cursor()
-        blu_cursor.execute('SELECT id FROM play_keys WHERE key_string=%s', (blu_playkey,))
-        result = blu_cursor.fetchone()
+        try:
+            blu_cursor = blu_db_connection.cursor()
+            blu_cursor.execute('SELECT id FROM play_keys WHERE key_string=%s', (blu_playkey,))
+            result = blu_cursor.fetchone()
 
-        # If the account exists
-        if result:
-            # Get the account id from the play key id
-            playkey_id = result[0]
-            blu_cursor.execute('SELECT id FROM accounts WHERE play_key_id=%s', (playkey_id,))
-            result = blu_cursor.fetchall()
+            # If the account exists
+            if result:
+                # Get the account id from the play key id
+                playkey_id = result[0]
+                blu_cursor.execute('SELECT id FROM accounts WHERE play_key_id=%s', (playkey_id,))
+                result = blu_cursor.fetchall()
 
-            if not result or len(result) == 0:
-                ret = [-2, account_id]
-            else:
-                account_id = result[0][0]
-
-                # Ensure the account already hasn't been "claimed" by a discord user
-                nu_cursor = nu_db_connection.cursor()
-                nu_cursor.execute('SELECT COUNT(*) FROM blu_transfers WHERE blu_account_id=%s', (account_id,))
-                result = nu_cursor.fetchone()
-                if result and result[0] > 0:
-                    ret = [-4, account_id]
+                if not result or len(result) == 0:
+                    ret = [-2, account_id]
                 else:
-                    # Get the number of characters associated with the account
-                    blu_cursor.execute('SELECT COUNT(*) FROM charinfo WHERE account_id=%s', (account_id,))
-                    result = blu_cursor.fetchall()
-                    ret = [result[0][0], account_id]
-        else:
-            ret = [-1, account_id]
-    
-        blu_cursor.close()
-        blu_db_connection.close()
-        nu_cursor.close()
-        nu_db_connection.close()
+                    account_id = result[0][0]
+
+                    # Ensure the account already hasn't been "claimed" by a discord user
+                    nu_cursor = nu_db_connection.cursor()
+                    nu_cursor.execute('SELECT COUNT(*) FROM blu_transfers WHERE blu_account_id=%s', (account_id,))
+                    result = nu_cursor.fetchone()
+                    if result and result[0] > 0:
+                        ret = [-4, account_id]
+                    else:
+                        # Get the number of characters associated with the account
+                        blu_cursor.execute('SELECT COUNT(*) FROM charinfo WHERE account_id=%s', (account_id,))
+                        result = blu_cursor.fetchall()
+                        ret = [result[0][0], account_id]
+            else:
+                ret = [-1, account_id]
+
+        finally:
+            if blu_cursor:
+                blu_cursor.close()
+            if nu_cursor:
+                nu_cursor.close()
+            if blu_db_connection:
+                blu_db_connection.close()
+            if nu_db_connection:
+                nu_db_connection.close()
 
         return ret
     
