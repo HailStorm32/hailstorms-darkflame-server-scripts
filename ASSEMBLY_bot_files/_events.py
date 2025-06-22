@@ -51,6 +51,7 @@ class BotEvents():
                     await message.add_reaction('✅')
 
                     db_connection = self._get_db_connection()
+                    cursor = None
 
                     try:
                         if not db_connection:
