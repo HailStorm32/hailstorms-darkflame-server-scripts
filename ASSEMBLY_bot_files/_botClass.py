@@ -221,6 +221,15 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 color=discord.Color.yellow()
             )
 
+            # Check if the user has any warnings and note it on the report
+            record = self._pull_records(str(user)) or {}
+            warning_count = len(record.get("warnings", []))
+            if warning_count > 0:
+                user_embed.description += (
+                    f"\n\n__**Note:**__ This user has {warning_count} warning"
+                    f"{'s' if warning_count != 1 else ''} on record."
+                )
+
             # If there are more than 25 offenses, notify the user to manually view them
             if len(offenses) > 25: # 25 is the max number of fields a Discord embed can have
                 user_embed.description += (
