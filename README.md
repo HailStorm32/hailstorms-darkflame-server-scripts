@@ -13,13 +13,9 @@ These are the scripts I used for my darkflame LU server instance that was hosted
 All the bash scripts pull from a file named `dbInfo.txt` located in the home directory. This file contains the credentials needed to access the server database. You will need to create the file in the home directory and fill it out the following way.
 
 ```
-
 databaseName
-
 databaseUserName
-
 databasePassword
-
 ```
 
 
