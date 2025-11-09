@@ -37,12 +37,15 @@ OFFENSE_THRESHOLD = 3 #Number of offenses before a user flagged for review
 ################################
 # BLU Migration Settings
 ################################
-LAST_NU_OBJECT_ID = 66358 #Last NU object ID
-LAST_BLU_OBJECT_ID = 93000 #Last BLU object ID
+LAST_NU_OBJECT_ID = 99283 #Last NU object ID
+LAST_BLU_OBJECT_ID = 92505 #Last BLU object ID
 RSVD_OBJ_ID_START = LAST_NU_OBJECT_ID + 1
-TOTAL_RSVD_OBJ_IDS = RSVD_OBJ_ID_START + LAST_BLU_OBJECT_ID + 10000 #last NU + last BLU + Extra
+RSVD_OBJ_ID_END = RSVD_OBJ_ID_START + LAST_BLU_OBJECT_ID + 10000 #last NU + last BLU + Extra
+TOTAL_RSVD_OBJ_IDS = RSVD_OBJ_ID_END - RSVD_OBJ_ID_START
 
-# Offest the object_tracker_ids in NU by TOTAL_RSVD_OBJ_IDS to prevent conflicts
+# Offest the object_tracker_ids in NU by RSVD_OBJ_ID_END + 1 to prevent conflicts
+
+CHAR_XML_VERSION_TARGET = 6 #Highest character XML version XML should be at for BLU migrations
 
 # Set to False to prevent new BLU migrations from starting
 MIGRATIONS_ENABLED = True
