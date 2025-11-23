@@ -5,6 +5,7 @@ from mysql.connector import Error
 import time
 import logging
 import sys
+import math
 from ASSEMBLY_bot_files.ASSEMBLY_botSettings import GPT_API_KEY, DATABASE_IP, DATABASE_NAME, DATABASE_USER, DATABASE_PASS, NAME_CHECK_FREQ, MAX_NAMES, LOG_TO_FILE, LOG_FILE, DEBUG, FULL_NAME_APPROVAL_GPT_SYSTEM_MESSAGE, TRACK_OFFENSES
 
 MODULE_NAME = "[NameApproval]"
@@ -39,7 +40,7 @@ def check_DB_connection(connection):
             return True
     except Error as e:
         print(f"{MODULE_NAME}: The error '{e}' occurred while reconnecting")
-        
+
     return False
 
 
@@ -49,16 +50,16 @@ def pull_char_names(connection):
 
     Args:
         connection (object): A MySQL database connection object.
-    
+
     Returns:
-        list[str]: A list of strings containing pending character names, or None if the 
+        list[str]: A list of strings containing pending character names, or None if the
               database connection is invalid.
               Ex = ['JohnDoe', 'JaneDoe', 'Player123']
     """
     if not check_DB_connection(connection):
         print(MODULE_NAME + ": No mysql connection, unable to check for character names")
         return None
-    
+
     cursor = connection.cursor()
     cursor.execute("SELECT pending_name FROM charinfo WHERE pending_name <> '' AND needs_rename='0';")
     result = cursor.fetchall()
@@ -75,9 +76,9 @@ def pull_pet_names(connection):
 
     Args:
         connection (object): A MySQL database connection object.
-    
+
     Returns:
-        list[str]: A list of strings containing approved pet names, or None if the 
+        list[str]: A list of strings containing approved pet names, or None if the
               database connection is invalid.
               Ex = ['Fluffy', 'Buddy', 'Max']
 
@@ -85,7 +86,7 @@ def pull_pet_names(connection):
     if not check_DB_connection(connection):
         print(MODULE_NAME + ": No mysql connection, unable to check for pet names")
         return None
-    
+
     cursor = connection.cursor()
     cursor.execute("SELECT pet_name FROM pet_names WHERE approved='1'")
     result = cursor.fetchall()
@@ -110,41 +111,59 @@ def make_GPT_request(client, nameList):
     """
     if not nameList:
         return None
-    
+
     if len(nameList) == 0:
         return None
-    
+
     # Convert the list of names to a JSON string
     user_message = json.dumps({"names": nameList})
 
     if DEBUG:
         print("Checking names: " + user_message)
 
+    print(MODULE_NAME + ": Making request to OpenAI for " + str(len(nameList)) + " names...")
+
     # Make the request to OpenAI
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": FULL_NAME_APPROVAL_GPT_SYSTEM_MESSAGE},
-                {"role": "user", "content": user_message}
-            ],
-            temperature=.5,
-            top_p=1,
-            frequency_penalty=0,
-            presence_penalty=0
+        response = client.responses.create(
+            model="gpt-5-mini",
+            instructions=FULL_NAME_APPROVAL_GPT_SYSTEM_MESSAGE,
+            input=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": user_message,
+                            }
+                        ],
+                    }
+                ],
+            text={
+                "format": {"type": "text"},
+                "verbosity": "medium",
+            },
+            reasoning={
+                "effort": "high",
+                "summary": "auto",
+            },
         )
     except Exception as e:
         print(MODULE_NAME + ": Failed to make request to OpenAI \n Error: " + str(e))
         return None
-    
-    if response.choices[0].message.content and DEBUG:
-        print(MODULE_NAME + ": Raw GPT resonse: " + response.choices[0].message.content + "\n\n")  
+
+    if response.status == "incomplete" and response.incomplete_details.reason == "max_output_tokens":
+        print(MODULE_NAME + ": GPT response was incomplete due to max output tokens")
+
+    print(MODULE_NAME + ": Received response from OpenAI")
+    if response.output_text and DEBUG:
+        print(MODULE_NAME + ": Raw GPT response: " + response.output_text + "\n\n")
 
     # Convert the JSON response to a dictionary
     try:
-        namesToReject = json.loads(response.choices[0].message.content)
+        namesToReject = json.loads(response.output_text)
     except Exception as e:
-        print(MODULE_NAME + ": Faild to convert GPT resonse to JSON\nError: " + str(e))
+        print(MODULE_NAME + ": Failed to convert GPT response to JSON\nError: " + str(e))
         namesToReject = None
 
     return namesToReject
@@ -175,9 +194,15 @@ def check_names(openAIClient, nameList):
         This is done to limit on the number of names that can be checked at once
         '''
         nameList = [nameList[i:i + MAX_NAMES] for i in range(0, len(nameList), MAX_NAMES)]
-        
+        total_pages = math.ceil(numOfNames / MAX_NAMES)
+
         # Check each sublist of names
+        pagesChecked = 0
         for list in nameList:
+            pagesChecked = pagesChecked + 1
+
+            print(MODULE_NAME + ": Checking page " + str(pagesChecked) + " of " + str(total_pages)  + " names with GPT...")
+
             namesToReject = make_GPT_request(openAIClient, list)
 
             if namesToReject and len(namesToReject) > 0:
@@ -212,7 +237,7 @@ def log_names_checked_and_rejected(name_logger, rejectedNames, totalNames):
             name_logger.info(f"Names checked: \n {total_names_str}\n\n")
         else:
             name_logger.info("No names checked this round")
-        
+
         # Log the names rejected
         if rejectedNames and len(rejectedNames["namesToReject"]) > 0:
             rejected_names_str = json.dumps(rejectedNames["namesToReject"], indent=4)
@@ -240,7 +265,7 @@ def report_offenses(connection, rejectedNames, name_type):
     if not check_DB_connection(connection):
         print(MODULE_NAME + ": No mysql connection, unable to report offenses")
         return
-    
+
     cursor = connection.cursor()
 
     # Iterate through the rejected names
@@ -296,7 +321,7 @@ def report_offenses(connection, rejectedNames, name_type):
                 if not result:
                     print(MODULE_NAME + ": Failed to find user record for key ID: " + key_id)
                     return
-                
+
                 # If there is no user record, create one
                 if not result[0]:
                     user_record = {
@@ -344,6 +369,12 @@ def main():
 
     openAIClient = OpenAI(api_key=GPT_API_KEY)
 
+    names = [
+        "abmooP", "onaiP", "yddaP", "atataManukaH", "GustavII", "FluffyBerry", "transrights", "Snowie", "erag", "SKORAMS", "Gryf", "FROSTED", "DRAGON1", "dragon2", "Binkies", "tanith", "transpower", "PUPPYYYYYYYYYYY", "Skelleblob", "Robcio", "Tinus", "Piesek", "Kotek", "Kotek2", "Tinus", "Tinek", "Piesek", "Turambar", "B1oat", "Spook", "BaulPlart", "callsigneve", "DeltaDart", "SonGokuSSJ", "Sevo", "Jakey", "trans", "wdaw", "Moneyyy", "Scarface", "tordih", "wartawg", "HotDogHog", "Gunna", "wada", "awdaw", "bobot", "Stromkasten", "tootless", "Rammler", "Rammler2", "Essen", "Hund3", "TerryBerry", "Meownolis", "MAREEP", "trinket", "Crocaloca", "RatherLarge", "Porpepty", "dewey", "DickesDing"
+    ]
+
+    totalNamesToReject = check_names(openAIClient, names)
+
     while(True):
         print(MODULE_NAME + ": Starting name check...")
 
@@ -375,9 +406,9 @@ def main():
         #---------------------------------------------------------------------
         print(MODULE_NAME + ": Checking character names...")
         totalNamesToReject = check_names(openAIClient, charNames)
-        
+
         if totalNamesToReject:
-            
+
             # Ensure we have a database connection
             if check_DB_connection(connection):
 
@@ -385,27 +416,27 @@ def main():
 
                 # Check if there are any names to reject
                 if len(totalNamesToReject["namesToReject"]) > 0:
-                    
+
                     # Reject the names
                     names_to_reject = ["'" + entry["name"] + "'" for entry in totalNamesToReject["namesToReject"]]
                     cursor.execute("UPDATE charinfo SET needs_rename='1' WHERE pending_name IN (" + ", ".join(names_to_reject) + ");")
-                    
+
                 #Approve remaining names
                 cursor.execute("UPDATE charinfo SET name = pending_name WHERE pending_name != '' AND needs_rename = '0';") #Set the name to the pending name
                 cursor.execute("UPDATE charinfo SET pending_name = '' WHERE pending_name != '' AND needs_rename = '0';") #Clear the pending name
-                
+
                 # Commit the changes
                 connection.commit()
 
                 namesChecked = True
                 print(MODULE_NAME + ": Checked " + str(totalNamesToReject["totalNumOfNames"]) + " character names and rejected " + str(len(totalNamesToReject["namesToReject"])) + " names")
-            
+
                 if TRACK_OFFENSES:
                     report_offenses(connection, totalNamesToReject["namesToReject"], "character")
 
             else:
                 print(MODULE_NAME + ": No mysql connection, unable to moderate character names")
-        
+
         else:
             print(MODULE_NAME + ": No character names to approve, skipping...")
 
@@ -421,7 +452,7 @@ def main():
         totalNamesToReject = check_names(openAIClient, petNames)
 
         if totalNamesToReject:
-            
+
             # Ensure we have a database connection
             if check_DB_connection(connection):
 
@@ -429,26 +460,26 @@ def main():
 
                 # Check if there are any names to reject
                 if len(totalNamesToReject["namesToReject"]) > 0:
-                    
+
                     # Reject the names
                     names_to_reject = ["'" + entry["name"] + "'" for entry in totalNamesToReject["namesToReject"]]
                     cursor.execute("UPDATE pet_names SET approved ='0' WHERE pet_name IN (" + ", ".join(names_to_reject) + ");")
-                    
+
                 #Approve remaining names
-                cursor.execute("UPDATE pet_names SET approved = '2' WHERE approved != '0';") 
+                cursor.execute("UPDATE pet_names SET approved = '2' WHERE approved != '0';")
 
                 # Commit the changes
                 connection.commit()
 
                 namesChecked = True
                 print(MODULE_NAME + ": Checked " + str(totalNamesToReject["totalNumOfNames"]) + " character names and rejected " + str(len(totalNamesToReject["namesToReject"])) + " names")
-            
+
                 if TRACK_OFFENSES:
                     report_offenses(connection, totalNamesToReject["namesToReject"], "pet")
 
             else:
                 print(MODULE_NAME + ": No mysql connection, unable to moderate pet names")
-        
+
         else:
             print(MODULE_NAME + ": No pet names to approve, skipping...")
 
@@ -468,7 +499,7 @@ def main():
         # Sleep for a set amount of time
         print(MODULE_NAME + ": Sleeping for " + str(NAME_CHECK_FREQ) + " seconds...")
         time.sleep(NAME_CHECK_FREQ)
-        
+
 
 if __name__ == "__main__":
     print(MODULE_NAME + ": Please run ASSEMBLY_bot.py to start")

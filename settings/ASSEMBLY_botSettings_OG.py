@@ -83,7 +83,7 @@ GPT_API_KEY = "API_KEY_HERE"  #OpenAI API Key
 SEC_IN_HOUR = 3600
 NAME_CHECK_FREQ = 24 * SEC_IN_HOUR  #In hours, how frequent the name check should run
 
-MAX_NAMES = 100 #Max number of names to check at a time
+MAX_NAMES = 500 #Max number of names to check at a time
 
 # Log Settings - logs all names checked and rejected names (and reasons) to a log file
 LOG_TO_FILE = True
