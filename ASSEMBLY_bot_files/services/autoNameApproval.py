@@ -369,12 +369,6 @@ def main():
 
     openAIClient = OpenAI(api_key=GPT_API_KEY)
 
-    names = [
-        "abmooP", "onaiP", "yddaP", "atataManukaH", "GustavII", "FluffyBerry", "transrights", "Snowie", "erag", "SKORAMS", "Gryf", "FROSTED", "DRAGON1", "dragon2", "Binkies", "tanith", "transpower", "PUPPYYYYYYYYYYY", "Skelleblob", "Robcio", "Tinus", "Piesek", "Kotek", "Kotek2", "Tinus", "Tinek", "Piesek", "Turambar", "B1oat", "Spook", "BaulPlart", "callsigneve", "DeltaDart", "SonGokuSSJ", "Sevo", "Jakey", "trans", "wdaw", "Moneyyy", "Scarface", "tordih", "wartawg", "HotDogHog", "Gunna", "wada", "awdaw", "bobot", "Stromkasten", "tootless", "Rammler", "Rammler2", "Essen", "Hund3", "TerryBerry", "Meownolis", "MAREEP", "trinket", "Crocaloca", "RatherLarge", "Porpepty", "dewey", "DickesDing"
-    ]
-
-    totalNamesToReject = check_names(openAIClient, names)
-
     while(True):
         print(MODULE_NAME + ": Starting name check...")
 
