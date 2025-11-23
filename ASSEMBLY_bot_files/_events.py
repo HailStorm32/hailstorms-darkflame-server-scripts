@@ -58,7 +58,7 @@ class BotEvents():
                             print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to generate play key")
                             await message.add_reaction('⚠️')
                             return
-                        
+
                         ##### easter egg for trounty ignore#####
                         if message.author.id == 833314752897482762:
                             thread = await message.create_thread(name="Granted", auto_archive_duration=1440)  # Auto-archive after 24 hours
@@ -66,7 +66,7 @@ class BotEvents():
                             return
                         ##### easter egg for trounty ignore#####
 
-                        
+
                         key = self._get_key_from_user_id(message.author.id)
 
                         if key:
@@ -97,7 +97,7 @@ class BotEvents():
                             cursor.close()
                         if db_connection:
                             db_connection.close()
-                
+
                 elif message.channel.name == BLU_TRANSFER_CHANNEL:
                     await message.add_reaction('✅')
 
@@ -128,7 +128,7 @@ class BotEvents():
                             thread = await message.create_thread(name="No Account", auto_archive_duration=1440)  # Auto-archive after 24 hours
                             await thread.send(f'{message.author.mention}, you don\'t have an account with Nexus Universe. Please create an account, then come back and try again.\nIf you need assistance, please @ a {ROLE_TO_PING}.')
                             return
-                        
+
                         # Check if the user has an active transfer request
                         transfer_state = await asyncio.to_thread(self._get_user_transfer_state, message.author.id)
 
@@ -148,7 +148,7 @@ class BotEvents():
                             await message.add_reaction('‼️')
                             thread = await message.create_thread(name="DM Disabled", auto_archive_duration=1440)  # Auto-archive after 24 hours
                             await thread.send(f'{message.author.mention}, your DMs are disabled. Please enable DMs and try again.\nIf you need assistance, please @ a {ROLE_TO_PING}.')
-                    
+
                     finally:
                         if cursor:
                             cursor.close()
@@ -164,176 +164,186 @@ class BotEvents():
                     print(f"{self._MODULE_NAME}: ERROR: Bot not in Guild: {SERVER_ID}")
                     await message.channel.send("An error occurred while processing your request. Please try again later.")
                     return
-                
+
                 # Get user from guild
                 user = guild.get_member(message.author.id)
                 if not user:
                     print(f"{self._MODULE_NAME}: ERROR: User: {message.author.id} not found in Guild: {SERVER_ID}")
                     await message.channel.send("You are not a member of this server. Please join the server to use this bot.")
                     return
-                
-                # Check if the user is already being served
-                if message.author.id in accounts_being_served: 
-                    print(f"{self._MODULE_NAME}: ERROR: User: {message.author.id} is already being served.")
-                    return
-                else:
-                    accounts_being_served.add(message.author.id)
 
-                
-                try:
-                    # Get transfer state for the user
-                    transfer_state = await asyncio.to_thread(
-                        self._get_user_transfer_state, message.author.id
-                    )
+                ###########################
+                # BLU Migration Related DM Handling
+                ###########################
 
-                    # Dont allow migration if migrations are disabled
-                    if (
-                        not self.migrations_enabled
-                        and transfer_state
-                        not in (
-                            self.migration_state.NOT_STARTED,
-                            self.migration_state.TRANSFER_QUEUED,
-                            self.migration_state.TRANSFER_IN_PROGRESS,
-                            self.migration_state.COMPLETED,
-                            self.migration_state.ERROR_STATE,
-                        )
-                    ):
-                        await message.channel.send(
-                            "Migrations are currently disabled. Please try again later."
-                        )
+                # Only process if migrations are enabled
+                if self.migrations_enabled:
+
+                    # Check if the user is already being served
+                    if message.author.id in accounts_being_served:
+                        print(f"{self._MODULE_NAME}: ERROR: User: {message.author.id} is already being served.")
                         return
+                    else:
+                        accounts_being_served.add(message.author.id)
 
-                    match transfer_state:
-                        case self.migration_state.NOT_STARTED:
-                            await message.channel.send(f"You do not have an active transfer request. Please go to the #{BLU_TRANSFER_CHANNEL} channel to start the process.")
-                            return
-                        
-                        case self.migration_state.WAITING_FOR_ACCOUNT:
 
-                            # Lock the account to prevent changes while processing
-                            self._lock_account(message.author.name, message.author.id, False, False)
+                    try:
+                        # Get transfer state for the user
+                        transfer_state = await asyncio.to_thread(
+                            self._get_user_transfer_state, message.author.id
+                        )
 
-                            if message.content:
-                                # Check if key is valid
-                                if len(message.content) != PLAYKEY_LENGTH or not self._is_playkey(message.content):
-                                    await message.channel.send("❌ Invalid play key format. Please provide a valid key.")
-                                    return
-                                
-                                # Check if the account exists and get the number of characters
-                                num_of_blu_characters, blu_account_id = await asyncio.to_thread(self._validate_blu_account, message.content)
-
-                                if num_of_blu_characters > 0:
-                                    await message.channel.send(f"✅ Found {num_of_blu_characters} character(s) for possible migration.")
-
-                                    # Save the BLU account ID for later use
-                                    ret = await asyncio.to_thread(self._set_user_blu_account_id, message.author.id, blu_account_id)
-
-                                    if not ret:
-                                        await message.channel.send("⚠️ Server error #002! Please notify a mythran.")
-                                        return
-
-                                    nu_characters = await asyncio.to_thread(self._get_NU_characters, message.author.id)
-
-                                    # Check how many available character slots the user has left on NU
-                                    available_nu_slots = self.MAX_CHARACTER_SLOTS - len(nu_characters)
-
-                                    if available_nu_slots >= num_of_blu_characters:
-                                        migration_request = {
-                                            "discord_uuid": message.author.id,
-                                            "selective_migration": False,
-                                        }
-
-                                        self.migration_queue.put(migration_request)
-                                        print(f"{self._MODULE_NAME}: Migration request queued for user: {message.author.id}")
-
-                                        await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_QUEUED)
-                                        await message.channel.send("Your migration request has been queued. Please wait for the migration to finish.\n\nYou will be notified when the migration is complete.")
-
-                                        return
-
-                                    else:
-                                        await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.SELECTION_BEGIN)
-                                        await message.channel.send(f"\n⚠️ not enough character slots available on NU. You have {available_nu_slots} slot(s) available, but {num_of_blu_characters} character(s) to transfer. \n\nPlease send any message to proceed to the next step where you can select which characters to transfer.")
-                                        return
-
-                                elif num_of_blu_characters == 0:
-                                    await message.channel.send("❌ No characters found for that account. Migration cannot proceed.")
-
-                                elif num_of_blu_characters == -1:
-                                    await message.channel.send("❌ Not a BLU play key. Please provide a BLU key.")
-
-                                elif num_of_blu_characters == -2:
-                                    await message.channel.send("❌ No account tied to play key. Migration cannot proceed.")
-
-                                elif num_of_blu_characters == -3:
-                                    await message.channel.send("⚠️ Server error #001! Please notify a mythran.")
-                                
-                                elif num_of_blu_characters == -4:
-                                    await message.channel.send("❌ Account already claimed by another user! Please notify a mythran.")
-
-                            return
-
-                        case self.migration_state.TRANSFER_QUEUED:
-                            await message.channel.send("Your migration request is still queued. Please wait for the migration to complete.\n\nYou will be notified when the migration is complete.")
-                            return
-
-                        case self.migration_state.SELECTION_BEGIN:
-                            # Get NU characters
-                            nu_characters = await asyncio.to_thread(self._get_NU_characters, message.author.id)
-                            if not nu_characters:
-                                await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.ERROR_STATE, 7)
-                                print(f"{self._MODULE_NAME}: ERROR: No NU characters found for user: {message.author.id} when it was expected.")
-                                await message.channel.send("❌ An error occurred while fetching your characters. Please contact a mythran for assistance.")
-                                return
-                            
-                            # Get BLU characters
-                            transfer_info = await asyncio.to_thread(self._get_user_transfer_info, message.author.id)
-                            blu_account_id = transfer_info.get("blu_account_id") if transfer_info else None
-                            blu_characters = await asyncio.to_thread(self._get_BLU_characters, blu_account_id)
-                            if not blu_characters:
-                                await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.ERROR_STATE, 8)
-                                print(f"{self._MODULE_NAME}: ERROR: No BLU characters found for user: {message.author.id} when it was expected.")
-                                await message.channel.send("❌ An error occurred while fetching your BLU characters. Please contact a mythran for assistance.")
-                                return
-                            
-                            available_nu_slots = self.MAX_CHARACTER_SLOTS - len(nu_characters)
-
-                            # Send the migration selection view card
-                            await self._send_migration_selection(
-                                message.author,
-                                nu_characters,
-                                blu_characters,
-                                available_nu_slots,
+                        # Dont allow migration if migrations are disabled
+                        if (
+                            not self.migrations_enabled
+                            and transfer_state
+                            not in (
+                                self.migration_state.NOT_STARTED,
+                                self.migration_state.TRANSFER_QUEUED,
+                                self.migration_state.TRANSFER_IN_PROGRESS,
+                                self.migration_state.COMPLETED,
+                                self.migration_state.ERROR_STATE,
                             )
-                            await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.WAITING_FOR_SELECTION)
+                        ):
+                            await message.channel.send(
+                                "Migrations are currently disabled. Please try again later."
+                            )
                             return
 
-                        case self.migration_state.WAITING_FOR_SELECTION:
-                            await message.channel.send("Please select the characters you want to transfer by using the card above.\n\nIf you need help, please contact a mythran.")
-                            return
+                        match transfer_state:
+                            case self.migration_state.NOT_STARTED:
+                                await message.channel.send(f"You do not have an active transfer request. Please go to the #{BLU_TRANSFER_CHANNEL} channel to start the process.")
+                                return
 
-                        case self.migration_state.TRANSFER_IN_PROGRESS:
-                            await message.channel.send("Your migration is currently in progress. Please wait for the migration to complete.\n\nYou will be notified when the migration is complete.")
-                            return
-                        
-                        case self.migration_state.COMPLETED:
-                            await message.channel.send("Your migration has already been completed. If you have any issues, please contact a mythran.")
-                            return
-                        
-                        case self.migration_state.ERROR_STATE:
-                            await message.channel.send("An error occurred during the migration process. Your account is now stuck in an error state. Please contact a mythran for assistance.")
-                            return
+                            case self.migration_state.WAITING_FOR_ACCOUNT:
 
-                        case _:
-                            await message.channel.send("An error occurred while processing your request. Please try again later.")
-                finally:
-                    accounts_being_served.remove(message.author.id)
+                                # Lock the account to prevent changes while processing
+                                self._lock_account(message.author.name, message.author.id, False, False)
+
+                                if message.content:
+                                    # Check if key is valid
+                                    if len(message.content) != PLAYKEY_LENGTH or not self._is_playkey(message.content):
+                                        await message.channel.send("❌ Invalid play key format. Please provide a valid key.")
+                                        return
+
+                                    # Check if the account exists and get the number of characters
+                                    num_of_blu_characters, blu_account_id = await asyncio.to_thread(self._validate_blu_account, message.content)
+
+                                    if num_of_blu_characters > 0:
+                                        await message.channel.send(f"✅ Found {num_of_blu_characters} character(s) for possible migration.")
+
+                                        # Save the BLU account ID for later use
+                                        ret = await asyncio.to_thread(self._set_user_blu_account_id, message.author.id, blu_account_id)
+
+                                        if not ret:
+                                            await message.channel.send("⚠️ Server error #002! Please notify a mythran.")
+                                            return
+
+                                        nu_characters = await asyncio.to_thread(self._get_NU_characters, message.author.id)
+
+                                        # Check how many available character slots the user has left on NU
+                                        available_nu_slots = self.MAX_CHARACTER_SLOTS - len(nu_characters)
+
+                                        if available_nu_slots >= num_of_blu_characters:
+                                            migration_request = {
+                                                "discord_uuid": message.author.id,
+                                                "selective_migration": False,
+                                            }
+
+                                            self.migration_queue.put(migration_request)
+                                            print(f"{self._MODULE_NAME}: Migration request queued for user: {message.author.id}")
+
+                                            await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.TRANSFER_QUEUED)
+                                            await message.channel.send("Your migration request has been queued. Please wait for the migration to finish.\n\nYou will be notified when the migration is complete.")
+
+                                            return
+
+                                        else:
+                                            await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.SELECTION_BEGIN)
+                                            await message.channel.send(f"\n⚠️ not enough character slots available on NU. You have {available_nu_slots} slot(s) available, but {num_of_blu_characters} character(s) to transfer. \n\nPlease send any message to proceed to the next step where you can select which characters to transfer.")
+                                            return
+
+                                    elif num_of_blu_characters == 0:
+                                        await message.channel.send("❌ No characters found for that account. Migration cannot proceed.")
+
+                                    elif num_of_blu_characters == -1:
+                                        await message.channel.send("❌ Not a BLU play key. Please provide a BLU key.")
+
+                                    elif num_of_blu_characters == -2:
+                                        await message.channel.send("❌ No account tied to play key. Migration cannot proceed.")
+
+                                    elif num_of_blu_characters == -3:
+                                        await message.channel.send("⚠️ Server error #001! Please notify a mythran.")
+
+                                    elif num_of_blu_characters == -4:
+                                        await message.channel.send("❌ Account already claimed by another user! Please notify a mythran.")
+
+                                return
+
+                            case self.migration_state.TRANSFER_QUEUED:
+                                await message.channel.send("Your migration request is still queued. Please wait for the migration to complete.\n\nYou will be notified when the migration is complete.")
+                                return
+
+                            case self.migration_state.SELECTION_BEGIN:
+                                # Get NU characters
+                                nu_characters = await asyncio.to_thread(self._get_NU_characters, message.author.id)
+                                if not nu_characters:
+                                    await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.ERROR_STATE, 7)
+                                    print(f"{self._MODULE_NAME}: ERROR: No NU characters found for user: {message.author.id} when it was expected.")
+                                    await message.channel.send("❌ An error occurred while fetching your characters. Please contact a mythran for assistance.")
+                                    return
+
+                                # Get BLU characters
+                                transfer_info = await asyncio.to_thread(self._get_user_transfer_info, message.author.id)
+                                blu_account_id = transfer_info.get("blu_account_id") if transfer_info else None
+                                blu_characters = await asyncio.to_thread(self._get_BLU_characters, blu_account_id)
+                                if not blu_characters:
+                                    await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.ERROR_STATE, 8)
+                                    print(f"{self._MODULE_NAME}: ERROR: No BLU characters found for user: {message.author.id} when it was expected.")
+                                    await message.channel.send("❌ An error occurred while fetching your BLU characters. Please contact a mythran for assistance.")
+                                    return
+
+                                available_nu_slots = self.MAX_CHARACTER_SLOTS - len(nu_characters)
+
+                                # Send the migration selection view card
+                                await self._send_migration_selection(
+                                    message.author,
+                                    nu_characters,
+                                    blu_characters,
+                                    available_nu_slots,
+                                )
+                                await asyncio.to_thread(self._set_user_transfer_state, message.author.id, self.migration_state.WAITING_FOR_SELECTION)
+                                return
+
+                            case self.migration_state.WAITING_FOR_SELECTION:
+                                await message.channel.send("Please select the characters you want to transfer by using the card above.\n\nIf you need help, please contact a mythran.")
+                                return
+
+                            case self.migration_state.TRANSFER_IN_PROGRESS:
+                                await message.channel.send("Your migration is currently in progress. Please wait for the migration to complete.\n\nYou will be notified when the migration is complete.")
+                                return
+
+                            case self.migration_state.COMPLETED:
+                                await message.channel.send("Your migration has already been completed. If you have any issues, please contact a mythran.")
+                                return
+
+                            case self.migration_state.ERROR_STATE:
+                                await message.channel.send("An error occurred during the migration process. Your account is now stuck in an error state. Please contact a mythran for assistance.")
+                                return
+
+                            case _:
+                                await message.channel.send("An error occurred while processing your request. Please try again later.")
+                    finally:
+                        accounts_being_served.remove(message.author.id)
+
+                else:
+                    await message.channel.send("BLU migrations are currently disabled. Please try again later.")
 
         @self._bot.event
         async def on_member_remove(member):
             if LOCK_ON_LEAVE:
                 guild = member.guild
-                botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL) 
+                botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL)
 
                 if botMessageChannel:
                     botMessageChannelMessage = self._lock_account(member.name, member.id)
