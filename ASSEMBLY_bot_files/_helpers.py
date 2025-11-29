@@ -1466,7 +1466,7 @@ class BotHelpers():
                     # Generate a new id for the pet
                     new_id = str(self._get_new_id())
                     pet["@id"] = new_id
-                    
+
                     # Reset moderation state and name
                     pet["@m"] = "0"
                     pet["@n"] = ""
@@ -1868,6 +1868,107 @@ class BotHelpers():
             if blu_db_connection:
                 blu_db_connection.close()
 
+    def _migrate_mail(self, blu_character_id, new_character_id):
+        """
+        Migrates mail from the BLU character to a NU character.
+
+        Parameters:
+            blu_character_id (int): The BLU character ID whose mail will be migrated.
+            new_character_id (int): The new character ID in the NU database where mail will be applied.
+
+        Returns:
+            None
+
+        Raises:
+            DatabaseConnectionError: If a database connection cannot be established.
+            DatabaseFetchError: If required data cannot be fetched from the database.
+
+        """
+        print(f"{self._MODULE_NAME} {MIGRATION_TAG}: INFO: Migrating mail from BLU character {blu_character_id} to NU character {new_character_id} ...")
+
+        nu_db_connection = self._get_db_connection()
+        blu_db_connection = self._get_blu_db_connection()
+        if not nu_db_connection or not blu_db_connection:
+            raise self.DatabaseConnectionError("No database connection available for migrating mail.")
+
+        nu_db_cursor = nu_db_connection.cursor()
+        blu_db_cursor = blu_db_connection.cursor()
+
+        try:
+            blu_db_cursor.execute('SELECT * FROM mail WHERE receiver_id = %s', (blu_character_id,))
+            mails = blu_db_cursor.fetchall()
+
+            if not mails:
+                print(f"{self._MODULE_NAME} {MIGRATION_TAG}: WARNING: No mail found for BLU character {blu_character_id}. Skipping mail migration.")
+                return
+
+            for mail in mails:
+                mail_dict = {
+                    "id": mail[0],
+                    "sender_id": mail[1],
+                    "sender_name": mail[2],
+                    "receiver_id": mail[3],
+                    "receiver_name": mail[4],
+                    "time_sent": mail[5],
+                    "subject": mail[6],
+                    "body": mail[7],
+                    "attachment_id": mail[8],
+                    "attachment_lot": mail[9],
+                    "attachment_subkey": mail[10],
+                    "attachment_count": mail[11],
+                    "was_read": mail[12],
+                }
+
+                # Generate a new unique mail ID (avoid using BLU mail ID primary key)
+                nu_db_cursor.execute('SELECT MAX(id) FROM mail')
+                max_id_row = nu_db_cursor.fetchone()
+                if max_id_row:
+                    new_mail_id = (max_id_row[0] or 0) + 1
+                else:
+                    raise self.DatabaseFetchError("Failed to fetch max mail ID from NU database.")
+
+                # Update the receiver id
+                mail_dict["receiver_id"] = new_character_id
+
+                # Update the mail id
+                old_mail_id = mail_dict["id"]  # Store the old mail ID for logging
+                mail_dict["id"] = new_mail_id
+
+                # Insert the mail into the NU database
+                nu_db_cursor.execute(
+                    'INSERT INTO mail (id, sender_id, sender_name, receiver_id, receiver_name, time_sent, subject, body, attachment_id, attachment_lot, attachment_subkey, attachment_count, was_read) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                    (
+                        mail_dict["id"],
+                        0,  # sender may not exist in NU
+                        mail_dict["sender_name"],
+                        mail_dict["receiver_id"],
+                        mail_dict["receiver_name"],
+                        mail_dict["time_sent"],
+                        mail_dict["subject"],
+                        mail_dict["body"],
+                        mail_dict["attachment_id"],
+                        mail_dict["attachment_lot"],
+                        mail_dict["attachment_subkey"],
+                        mail_dict["attachment_count"],
+                        mail_dict["was_read"],
+                    )
+                )
+                nu_db_connection.commit()
+                print(f"{self._MODULE_NAME} {MIGRATION_TAG}: INFO: Successfully migrated mail ID [{old_mail_id}] to NU [{mail_dict['id']}] for receiver ID [{mail_dict['receiver_id']}]")
+
+            print(f"{self._MODULE_NAME} {MIGRATION_TAG}: INFO: Successfully migrated mail from BLU character {blu_character_id} to NU character {new_character_id}")
+
+        finally:
+            if nu_db_cursor:
+                nu_db_cursor.close()
+            if blu_db_cursor:
+                blu_db_cursor.close()
+
+            if nu_db_connection:
+                nu_db_connection.close()
+            if blu_db_connection:
+                blu_db_connection.close()
+
     def _main_migration_loop(self):
         """
         Main migration loop that processes users in the migration queue and performs necessary actions.
@@ -1988,6 +2089,9 @@ class BotHelpers():
                         # Migrate the UGC modular builds (rockets, cars, etc) from the BLU character to the NU character
                         ugc_id_pairs = self._migrate_ugc_modular(char_id, new_char_id)
 
+                        # Migrate the mail from the BLU character to the NU character
+                        self._migrate_mail(char_id, new_char_id)
+
                         # Pull and clean the character XML from BLU
                         cleaned_xml = self._pull_and_clean_char_xml(char_id, new_char_id, ugc_id_pairs)
 
@@ -2098,7 +2202,10 @@ class BotHelpers():
                         # Send message to bot channel that migration failed
                         bot_channel = discord.utils.get(self._bot.get_all_channels(), name=BOT_CHANNEL)
                         if bot_channel:
-                            coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message}")
+                            if isinstance(e, Exception) and hasattr(e, 'message'):
+                                coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {e.message}")
+                            else:
+                                coroutine = bot_channel.send(f"**Migration failed for user `{discord_uuid}`**\n\nError: {str(e)}")
                             asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
                         else:
                             print(f"{self._MODULE_NAME} {MIGRATION_TAG}: WARNING: Bot channel not found. Unable to send migration failure message.")
