@@ -1490,6 +1490,11 @@ class BotHelpers():
             #############################################
             print(f"{self._MODULE_NAME} {MIGRATION_TAG}: INFO: Updating item IDs in character XML if collisions are found...")
 
+            if not isinstance(xml_dict["obj"]["inv"]["items"]["in"], list):
+                print(f"{self._MODULE_NAME} {MIGRATION_TAG}: INFO: Single inventory type found for BLU character ID {blu_character_id}, converting to list.")
+                # If there is a single inventory type, convert it to a list (The case for newly created characters with empty inventories)
+                xml_dict["obj"]["inv"]["items"]["in"] = [xml_dict["obj"]["inv"]["items"]["in"]]
+
             # Cycle through all inventory types and update item IDs if there are collisions
             for inventory_type in xml_dict["obj"]["inv"]["items"]["in"]:
                 # Skip empty inventory types
