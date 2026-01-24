@@ -128,7 +128,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
 
     def start_discord_bot(self):
         """
-        Start the bot 
+        Start the bot
         """
         self._bot_started = True
 
@@ -139,12 +139,13 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             self._bot_started = False
             sys.exit(1)
 
-    def send_discord_message(self, message):
+    def send_discord_message(self, message, ping_role=False):
         """
         Thread-safe method to send a Discord message to the bot channel.
 
         Parameters:
             message (str): The message to send to the Discord bot channel.
+            ping_role (bool): Whether to ping a specific role in the message.
 
         Returns:
             None
@@ -160,8 +161,15 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             print(f"{self._MODULE_NAME}: ERROR: Channel '{BOT_CHANNEL}' not found! Message not sent.")
             return
 
+        if ping_role:
+            guild = channel.guild
+            role = discord.utils.get(guild.roles, name=ROLE_TO_PING)
+
         # Prepare the coroutine to send a message
-        coroutine = channel.send(message)
+        if ping_role and role:
+            coroutine = channel.send(f"{role.mention} {message}")
+        else:
+            coroutine = channel.send(message)
 
         # Schedule the coroutine on the bot's event loop
         asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
@@ -261,7 +269,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             view.message = await channel.send(embed=user_embed, view=view) # Can use await here b/c we are in an async function being ran in the bot event loop
 
             await asyncio.sleep(0.3)
-        
+
         # Mention the moderator role to notify about potential violations
         guild = channel.guild
         role = discord.utils.get(guild.roles, name=ROLE_TO_PING)
@@ -343,7 +351,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             Returns:
                 None: This method does not return a value.
             """
-       
+
             super().__init__(timeout=timeout) # Timeout in seconds
             self.user_id = user_id
             self.offenses = offenses
@@ -556,7 +564,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                     ephemeral=True,
                 )
                 return
-            
+
             if len(transfer_ids) == 0:
                 await interaction.response.send_message(
                     "❌ You must select at least one BLU character to transfer.",
