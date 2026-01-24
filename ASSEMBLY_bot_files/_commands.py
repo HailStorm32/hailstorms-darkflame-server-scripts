@@ -29,7 +29,7 @@ class BotCommands():
             # Check if the identifier is a play key
             if self._is_playkey(identifier):
                 uuid = self._get_user_id_from_key(identifier)
-                
+
                 if uuid:
                     user = discord.utils.get(interaction.guild.members, id=int(uuid))
                 else:
@@ -37,7 +37,7 @@ class BotCommands():
                     return
             else:
                 user = discord.utils.get(interaction.guild.members, name=identifier)
-            
+
             if user:
                 message = self._lock_account(user.name, user.id, False)
                 await interaction.response.send_message(message, ephemeral=True)
@@ -60,7 +60,7 @@ class BotCommands():
             # Check if the identifier is a play key
             if self._is_playkey(identifier):
                 uuid = self._get_user_id_from_key(identifier)
-                
+
                 if uuid:
                     user = discord.utils.get(interaction.guild.members, id=int(uuid))
                 else:
@@ -71,7 +71,7 @@ class BotCommands():
 
             if user:
                 message = self._unlock_account(user.name, user.id)
-                await interaction.response.send_message(message, ephemeral=True)          
+                await interaction.response.send_message(message, ephemeral=True)
             else:
                 await interaction.response.send_message(f'User with name/play-key `{identifier}` not found', ephemeral=True)
 
@@ -179,7 +179,7 @@ class BotCommands():
 
                     # Log the addition
                     guild = user.guild
-                    botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL) 
+                    botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL)
                     if botMessageChannel:
                         await botMessageChannel.send(f'A record was added to the `WARNING` category for user `{username}` by `{interaction.user}`.\nDetails of the added record:\n  `{warning_obj}`')
                     else:
@@ -228,11 +228,11 @@ class BotCommands():
                 if result:
                     # Format the records for display
                     notes_display, offenses_display, warnings_display = self._format_user_records(result[0])
-                    
+
                     if record == self.record_type.ALL:
                         notes_display = f"{notes_display}\n\n{offenses_display}\n\n{warnings_display}"
                         await interaction.response.send_message(f'Records for `{username}`:\n\n{notes_display}', ephemeral=True)
-                    
+
                     elif record == self.record_type.NOTE:
                         await interaction.response.send_message(f'Notes for `{username}`:\n\n{notes_display}', ephemeral=True)
 
@@ -264,10 +264,10 @@ class BotCommands():
         async def _show_key_cmd(interaction: discord.Interaction, username: str):
             user = discord.utils.get(interaction.guild.members, name=username)
             if user:
-                key = self._get_key_from_user_id(user.id)
+                key_info = self._get_key_from_user_id(user.id)
 
-                if key:
-                    await interaction.response.send_message(f'Play key for {username}: {key}', ephemeral=True)
+                if key_info:
+                    await interaction.response.send_message(f'Play key for {username}: {key_info["key_string"]}', ephemeral=True)
                 else:
                     await interaction.response.send_message(f'No play key found for user {username}', ephemeral=True)
             else:
@@ -358,7 +358,7 @@ class BotCommands():
 
                     # Log the removal
                     guild = user.guild
-                    botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL) 
+                    botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL)
                     if botMessageChannel:
                         await botMessageChannel.send(f'Note with ID `{record_id}` removed from category `{record_key}` for user `{username}` by `{interaction.user}`\nRemoved record:\n  `{removed_record}`')
                     else:
@@ -374,7 +374,7 @@ class BotCommands():
             if isinstance(error, discord.app_commands.MissingRole):
                 await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
 
-        
+
         ##############
         # Command: updatewhitelist
         ##############
@@ -387,18 +387,18 @@ class BotCommands():
                     print(f"{self._MODULE_NAME}: ERROR: Whitelist file `{WHITELIST_FILE}` not found.")
                     await interaction.response.send_message(f"Whitelist file `{WHITELIST_FILE}` not found.", ephemeral=True)
                     return
-                
+
                 # Ensure the whitelist file is readable
                 if not os.access(WHITELIST_FILE, os.R_OK):
                     print(f"{self._MODULE_NAME}: ERROR: Whitelist file `{WHITELIST_FILE}` is not readable.")
                     await interaction.response.send_message(f"Whitelist file `{WHITELIST_FILE}` is not readable.", ephemeral=True)
-                
+
                 # Ensure the whitelist file is writable
                 if not os.access(WHITELIST_FILE, os.W_OK):
                     print(f"{self._MODULE_NAME}: ERROR: Whitelist file `{WHITELIST_FILE}` is not writable.")
                     await interaction.response.send_message(f"Whitelist file `{WHITELIST_FILE}` is not writable.", ephemeral=True)
                     return
-    
+
                 # Ensure the whitelist channel exists
                 guild = interaction.guild
                 whitelist_channel = discord.utils.get(guild.text_channels, name=WHITELIST_CHANNEL)
@@ -417,11 +417,11 @@ class BotCommands():
                     content = message.content.strip()
                     if content:
                         whitelist_data.append(content)
-                
+
                 if not whitelist_data:
                     await interaction.response.send_message("No valid whitelist data found in the channel.", ephemeral=True)
                     return
-                
+
                 await interaction.response.send_message("Processing... This could take a few minutes...", ephemeral=True)
 
                 # Convert the whitelist data into a new line separated string
@@ -460,7 +460,7 @@ class BotCommands():
 
                 # Delete all messages in the whitelist channel using bulk delete
                 await whitelist_channel.purge(limit=None, bulk=False) # bulk=False forces individual deletes (no 14‑day cutoff)
-                
+
                 print(f"{self._MODULE_NAME}: Deleted {len(messages)} messages from whitelist channel `{WHITELIST_CHANNEL}`")
 
                 # Delete the .dcf file if it exists
@@ -519,7 +519,7 @@ class BotCommands():
             response = self._make_game_announcement(title=f"Server shutting down in {minutes_to_update} minutes!", message=f"Server will shutdown in {minutes_to_update} minutes for updates. See Discord for more info.")
 
             await interaction.response.send_message(response, ephemeral=True)
-        
+
         @_game_announce_update_cmd.error
         async def _game_announce_update_cmd_error(interaction: discord.Interaction, error):
             if isinstance(error, discord.app_commands.MissingRole):
@@ -618,7 +618,7 @@ class BotCommands():
                     await interaction.response.send_message(f'User `{identifier}` not found', ephemeral=True)
                     return
                 user_id = member.id
-            
+
             # Reset the migration state in the database by deleting their row in the blu_transfers table
             db_connection = self._get_db_connection()
             if not db_connection:
@@ -630,7 +630,7 @@ class BotCommands():
             success = cursor.rowcount > 0
             cursor.close()
             db_connection.close()
-            
+
             if success:
                 await interaction.response.send_message(f'Migration state reset for `{identifier}`.', ephemeral=True)
             else:

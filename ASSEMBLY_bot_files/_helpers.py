@@ -577,27 +577,35 @@ class BotHelpers():
 
 
     def _get_key_from_user_id(self, user_id):
-        '''
-        Retrieves the key string associated with a given user ID from the database.
+        """
+        Retrieves the play key information associated with a given Discord user ID.
 
         Parameters:
-            user_id (str): The Discord user ID for which the key string is to be retrieved.
+            user_id (str | int): The Discord user ID for which the play key info is to be retrieved.
 
         Returns:
-            key_string (str or None): The key string associated with the user ID if found,
-                                      otherwise None.
-        '''
+            dict | None: If found, returns:
+            {"key_string": <str>, "times_used": <int>}
+            Otherwise returns None.
+        """
         db_connection = self._get_db_connection()
 
         if not db_connection:
             return None
 
         cursor = db_connection.cursor()
-        cursor.execute('SELECT key_string FROM play_keys WHERE discord_uuid=%s', (str(user_id),))
+        cursor.execute('SELECT key_string, times_used FROM play_keys WHERE discord_uuid=%s', (str(user_id),))
         result = cursor.fetchone()
         cursor.close()
 
         db_connection.close()
+
+        if result:
+            key_string = result[0]
+            times_used = result[1]
+
+            return {"key_string": key_string, "times_used": times_used}
+
         return result[0] if result else None
 
 
