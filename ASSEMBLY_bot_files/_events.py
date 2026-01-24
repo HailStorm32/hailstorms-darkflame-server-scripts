@@ -59,14 +59,6 @@ class BotEvents():
                             await message.add_reaction('⚠️')
                             return
 
-                        ##### easter egg for trounty ignore#####
-                        if message.author.id == 833314752897482762:
-                            thread = await message.create_thread(name="Granted", auto_archive_duration=1440)  # Auto-archive after 24 hours
-                            await thread.send(f'{message.author.mention}, You have been granted temporary mod access, please click [here](<https://shorturl.at/Ao3uQ>) to get familiar with the mod rules and to be given the mod role')
-                            return
-                        ##### easter egg for trounty ignore#####
-
-
                         key = self._get_key_from_user_id(message.author.id)
 
                         if key:
