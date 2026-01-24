@@ -5,3 +5,4 @@ mysql-connector-python-rf==2.2.2    # playerCntDisplay.py, charXmlPuller.py, aut
 paho-mqtt==1.6.1                    # playerCntDisplay.py
 xmltodict==0.13.0                   # contrabandCheck.py
 openai==2.8.1                       # autoNameApproval.py, ASSEMBLY_BOT.py
+discord==2.3.2                      # ASSEMBLY_bot.py

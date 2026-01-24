@@ -10,6 +10,26 @@ from ASSEMBLY_bot_files.ASSEMBLY_botSettings import GPT_API_KEY, DATABASE_IP, DA
 
 MODULE_NAME = "[NameApproval]"
 
+
+class NameApprovalOpenAIError(Exception):
+    """Raised when an OpenAI API call fails during name approval."""
+
+    def __init__(self, message, original_exception=None):
+        super().__init__(message)
+        self.original_exception = original_exception
+
+
+# Runtime kill-switch (kept in-memory; requires process restart to re-enable)
+NAME_APPROVAL_RUNTIME_ENABLED = True
+NAME_APPROVAL_DISABLED_REASON = None
+_API_ERROR_NOTIFIED = False
+
+
+def disable_name_approval(reason=None):
+    global NAME_APPROVAL_RUNTIME_ENABLED, NAME_APPROVAL_DISABLED_REASON
+    NAME_APPROVAL_RUNTIME_ENABLED = False
+    NAME_APPROVAL_DISABLED_REASON = reason
+
 #------------------------------------------------------------------------------------------
 # Helper Functions
 #------------------------------------------------------------------------------------------
@@ -149,8 +169,9 @@ def make_GPT_request(client, nameList):
             },
         )
     except Exception as e:
-        print(MODULE_NAME + ": Failed to make request to OpenAI \n Error: " + str(e))
-        return None
+        err_msg = f"{MODULE_NAME}: Failed to make request to OpenAI\nError: {str(e)}"
+        print(err_msg)
+        raise NameApprovalOpenAIError(err_msg, original_exception=e)
 
     if response.status == "incomplete" and response.incomplete_details.reason == "max_output_tokens":
         print(MODULE_NAME + ": GPT response was incomplete due to max output tokens")
@@ -204,6 +225,9 @@ def check_names(openAIClient, nameList):
             print(MODULE_NAME + ": Checking page " + str(pagesChecked) + " of " + str(total_pages)  + " names with GPT...")
 
             namesToReject = make_GPT_request(openAIClient, list)
+
+            if namesToReject is None:
+                return None
 
             if namesToReject and len(namesToReject) > 0:
                 totalNamesToReject = totalNamesToReject + namesToReject
@@ -347,8 +371,9 @@ def report_offenses(connection, rejectedNames, name_type):
 #------------------------------------------------------------------------------------------
 # Main Function
 #------------------------------------------------------------------------------------------
-def main():
+def main(on_api_error=None):
     global LOG_TO_FILE
+    global _API_ERROR_NOTIFIED
 
     totalNamesToReject = {}
 
@@ -370,6 +395,14 @@ def main():
     openAIClient = OpenAI(api_key=GPT_API_KEY)
 
     while(True):
+
+        # Runtime disabled (e.g., OpenAI API error). Keep thread alive but inert.
+        if not NAME_APPROVAL_RUNTIME_ENABLED:
+            if DEBUG:
+                print(f"{MODULE_NAME}: Name approval is disabled (reason: {NAME_APPROVAL_DISABLED_REASON}). Sleeping...")
+            time.sleep(NAME_CHECK_FREQ)
+            continue
+
         print(MODULE_NAME + ": Starting name check...")
 
         if LOG_FILE:
@@ -399,7 +432,23 @@ def main():
         # Check character names
         #---------------------------------------------------------------------
         print(MODULE_NAME + ": Checking character names...")
-        totalNamesToReject = check_names(openAIClient, charNames)
+        try:
+            totalNamesToReject = check_names(openAIClient, charNames)
+        except NameApprovalOpenAIError as e:
+            disable_name_approval("API Error")
+            if on_api_error and not _API_ERROR_NOTIFIED:
+                _API_ERROR_NOTIFIED = True
+                try:
+                    on_api_error(
+                        f"OpenAI API error occurred; disabling automatic name approval. Error: \n{str(e)}"
+                    )
+                except Exception as notify_err:
+                    print(f"{MODULE_NAME}: ERROR: Failed to notify bot about OpenAI API error: {notify_err}")
+
+            if connection:
+                connection.close()
+
+            continue
 
         if totalNamesToReject:
 
@@ -443,7 +492,22 @@ def main():
         # Check pet names
         #---------------------------------------------------------------------
         print(MODULE_NAME + ": Checking pet names...")
-        totalNamesToReject = check_names(openAIClient, petNames)
+        try:
+            totalNamesToReject = check_names(openAIClient, petNames)
+        except NameApprovalOpenAIError as e:
+            disable_name_approval("API Error")
+            if on_api_error and not _API_ERROR_NOTIFIED:
+                _API_ERROR_NOTIFIED = True
+                try:
+                    on_api_error(
+                        f"OpenAI API error occurred; disabling automatic name approval. Error: \n{str(e)}"
+                    )
+                except Exception as notify_err:
+                    print(f"{MODULE_NAME}: ERROR: Failed to notify bot about OpenAI API error: {notify_err}")
+
+            if connection:
+                connection.close()
+            continue
 
         if totalNamesToReject:
 
@@ -485,7 +549,11 @@ def main():
             print(MODULE_NAME + ": No names to check this round")
 
         # Close the database connection
-        connection.close()
+        try:
+            if connection:
+                connection.close()
+        except Exception:
+            pass
 
         if LOG_FILE:
             name_logger.info("\n\n********************************\n********* ^^ END NAME CHECK ^^\n********************************\n")
