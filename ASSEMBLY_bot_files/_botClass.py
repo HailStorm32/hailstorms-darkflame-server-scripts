@@ -302,19 +302,19 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
 
         embed = discord.Embed(
             title="BLU Migration",
-            description="Select which characters you wish to migrate.\n\n**WARNING:** This action is irreversible, choose carefully!\n\n",
+            description="Select which characters you wish to migrate and delete.\n\n**WARNING:** This action is irreversible, choose carefully!\n\n",
             color=discord.Color.blue(),
         )
 
         if nu_chars:
             embed.add_field(
-                name="Your NU Characters",
+                name="Your NU Characters (to delete)",
                 value="\n".join([name for name, _ in nu_chars]),
                 inline=False,
             )
 
         embed.add_field(
-            name="Your BLU Characters",
+            name="Your BLU Characters (to migrate)",
             value="\n".join([name for name, _ in blu_chars]) or "None",
             inline=False,
         )

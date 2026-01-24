@@ -59,12 +59,18 @@ class BotEvents():
                             await message.add_reaction('⚠️')
                             return
 
-                        key = self._get_key_from_user_id(message.author.id)
+                        key_info = self._get_key_from_user_id(message.author.id)
 
-                        if key:
+                        if key_info:
                             await message.add_reaction('❌')
+
+                            if key_info["times_used"] >= 1:
+                                message_text = f'You already have an account with Nexus Universe.\n\n For your record, your play key is: `{key_info["key_string"]}`\n\nIf you need to reset your password, please do so here: https://dashboard.nexusuniverse.online/user/forgot-password \n\n**If you recently left the Discord, you can unlock your account/key by DMing a Mythran**'
+                            else:
+                                message_text = f'You have already requested a play key. Your play key is: `{key_info["key_string"]}`\n\nPlease follow https://nexusuniverse.online/join for next steps. \n\n**If you recently left the Discord, you can unlock your key by DMing a Mythran**'
+
                             try:
-                                await message.author.send(f'You already have an account with Nexus Universe. Your play key is: `{key}`\n\nIf you need to reset your password, please do so here: https://dashboard.nexusuniverse.online/user/forgot-password \n\nIf you recently left the Discord, you can unlock your account/key by DMing a Mythran')
+                                await message.author.send(message_text)
                             except discord.Forbidden:
                                 await message.add_reaction('‼️')
                                 thread = await message.create_thread(name="DM Disabled", auto_archive_duration=1440)  # Auto-archive after 24 hours
@@ -118,7 +124,7 @@ class BotEvents():
                         if not result or result[0] == 0:
                             await message.add_reaction('❌')
                             thread = await message.create_thread(name="No Account", auto_archive_duration=1440)  # Auto-archive after 24 hours
-                            await thread.send(f'{message.author.mention}, you don\'t have an account with Nexus Universe. Please create an account, then come back and try again.\nIf you need assistance, please @ a {ROLE_TO_PING}.')
+                            await thread.send(f'{message.author.mention}, you don\'t have an account with Nexus Universe. Please create an account (see https://nexusuniverse.online/join), then come back and try again.\nIf you need assistance, please @ a {ROLE_TO_PING}.')
                             return
 
                         # Check if the user has an active transfer request
