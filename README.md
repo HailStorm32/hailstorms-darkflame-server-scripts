@@ -125,6 +125,36 @@ Locks or unlocks the account tied to the given play key.
   
 <br>
 
+<br>
+
+## itemIdReplacer.py<br>
+
+#### Description:
+
+Replaces a given item LOT ID with another item LOT ID in character inventory XML. By default, it updates only normal inventory (`@t="0"`) and vault inventory (`@t="1"`) entries in the `charxml` table.
+
+#### Setup:
+
+Uses the same root-level `contrabandCheckSettings.py` file as `contrabandCheck.py` for database credentials and inventory type definitions. Copy `contrabandCheckSettings_OG.py` from `settings` to the root directory of the repo, rename it to `contrabandCheckSettings.py`, and add the database credentials if you have not already done so.
+
+#### Use:
+
+Run without `--commit` first to preview replacements:
+
+```
+python3 itemIdReplacer.py OLD_ITEM_ID NEW_ITEM_ID
+```
+
+Apply the replacements after reviewing the dry-run output:
+
+```
+python3 itemIdReplacer.py OLD_ITEM_ID NEW_ITEM_ID --commit
+```
+
+By default, this replaces items in both main inventory (`Items`, `@t="0"`) and vault inventory (`Vault_Items`, `@t="1"`) using the inventory type IDs from `contrabandCheckSettings.py`. Use `--inventory-type` one or more times to override those default inventory containers for a single run.
+
+<br>
+
 ## playerCntDisplay.py<br>
 
 #### Description:
