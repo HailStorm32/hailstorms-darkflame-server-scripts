@@ -1,6 +1,7 @@
 import asyncio
 import discord
-from ASSEMBLY_bot_files.ASSEMBLY_botSettings import REQUEST_CHANNEL, ROLE_TO_PING, LOCK_ON_LEAVE, BOT_CHANNEL, BLU_TRANSFER_CHANNEL, SERVER_ID
+from datetime import timedelta
+from ASSEMBLY_bot_files.ASSEMBLY_botSettings import REQUEST_CHANNEL, ROLE_TO_PING, LOCK_ON_LEAVE, BOT_CHANNEL, BLU_TRANSFER_CHANNEL, SERVER_ID, HONEYPOT_CHANNEL, HONEYPOT_EXEMPT_ROLE, HONEYPOT_ACTION, HONEYPOT_DELETE_MESSAGE_HISTORY, HONEYPOT_HISTORY_LENGTH_HOURS, HONEYPOT_TIMEOUT_DURATION
 import re
 
 invalid_chars = ['@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '+', '=', '{', '}', '[', ']', ':', ';', '"', "'", '<', '>', ',', '.', '?', '/', '\\']
@@ -152,6 +153,64 @@ class BotEvents():
                             cursor.close()
                         if db_connection:
                             db_connection.close()
+
+                elif message.channel.name == HONEYPOT_CHANNEL:
+                    bot_channel = discord.utils.get(message.guild.text_channels, name=BOT_CHANNEL)
+
+                    if HONEYPOT_ACTION not in ("ban", "kick"):
+                        print(f"{self._MODULE_NAME}: ERROR: Invalid HONEYPOT_ACTION: {HONEYPOT_ACTION}")
+                        if bot_channel:
+                            await bot_channel.send("ERROR: Invalid HONEYPOT_ACTION configured. No action taken against user.")
+                        return
+
+                    if HONEYPOT_EXEMPT_ROLE:
+                        member = message.guild.get_member(message.author.id)
+                        if member and any(role.name == HONEYPOT_EXEMPT_ROLE for role in member.roles):
+                            return
+
+                    await message.add_reaction('❌')
+                    action_taken = "banned" if HONEYPOT_ACTION == "ban" else "kicked"
+                    action_message = f'{message.author.mention} interacted with the honeypot and has been muted for {HONEYPOT_TIMEOUT_DURATION} seconds and {action_taken}.'
+
+                    # Timeout the user
+                    await message.author.timeout(timedelta(seconds=HONEYPOT_TIMEOUT_DURATION), reason="Interacted with honeypot")
+
+                    # Optionally delete message history
+                    if HONEYPOT_DELETE_MESSAGE_HISTORY:
+                        def check(m):
+                            return m.author == message.author
+
+                        now = discord.utils.utcnow()
+                        cutoff = now - timedelta(hours=HONEYPOT_HISTORY_LENGTH_HOURS)
+
+                        num_deleted = 0
+                        channels_failed = 0
+
+                        for channel in message.guild.text_channels:
+                            try:
+                                async for msg in channel.history(limit=None, after=cutoff):
+                                    if check(msg):
+                                        try:
+                                            await msg.delete()
+                                            num_deleted += 1
+                                        except Exception as e:
+                                            print(f"{self._MODULE_NAME}: ERROR: Failed to delete message {msg.id} from user {message.author.id}: {e}")
+                            except Exception as e:
+                                channels_failed += 1
+                                print(f"{self._MODULE_NAME}: ERROR: Failed to scan channel {channel.name} for honeypot cleanup: {e}")
+
+                        action_message += f' Deleted {num_deleted} messages from all server channels in the last {HONEYPOT_HISTORY_LENGTH_HOURS} hours.'
+                        if channels_failed:
+                            action_message += f' Failed to scan {channels_failed} channel(s).'
+
+                    # Take action
+                    if HONEYPOT_ACTION == "ban":
+                        await message.guild.ban(message.author, reason="Interacted with honeypot")
+                    else:
+                        await message.guild.kick(message.author, reason="Interacted with honeypot")
+
+                    if bot_channel:
+                        await bot_channel.send(action_message)
 
             elif isinstance(message.channel, discord.DMChannel) and not message.author.bot:
 

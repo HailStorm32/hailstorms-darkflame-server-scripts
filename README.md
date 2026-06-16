@@ -1,6 +1,6 @@
-  
-  
-  
+
+
+
 
 # Intro
 
@@ -41,19 +41,19 @@ Approves all pending usernames and pet names. Can be edited to also approve all 
 
 #### Description:
 
-  
+
 
 Backs up the database to a Google Cloud storage bucket.
 
-  
+
 
 > This script will need to be edited to work properly for your environment
 
-  
+
 
 <br>
 
-  
+
 
 ## charRescue.sh<br>
 
@@ -61,7 +61,7 @@ Backs up the database to a Google Cloud storage bucket.
 
 Rescues a stuck player by modifying their xml data and placing them in a predetermined world and location.
 
-  
+
 
 #### Use:
 
@@ -77,7 +77,7 @@ Rescues a stuck player by modifying their xml data and placing them in a predete
 
 4. Enter the character ID of the stuck character
 
-  
+
 
 ##### options
 
@@ -89,13 +89,13 @@ Rescues a stuck player by modifying their xml data and placing them in a predete
 | NS Plaza        | ns1             |
 
 
-  
 
-  
+
+
 
 <br>
 
-  
+
 
 ## getCharInfo.sh<br>
 
@@ -103,11 +103,11 @@ Rescues a stuck player by modifying their xml data and placing them in a predete
 
 Displays all the characters and their info for the provided play key.
 
-  
+
 
 <br>
 
-  
+
 
 ## install.sh<br>
 
@@ -115,18 +115,18 @@ Displays all the characters and their info for the provided play key.
 
 Places a link to all the scripts in the home directory, as well as copies over the settings file for `playerCntDisplay.py`
 
-  
+
 
 <br>
 
-  
+
 
 ## lockAccount.sh<br>
 
 #### Description:
 
 Locks or unlocks the account tied to the given play key.
-  
+
 <br>
 
 ## playerCntDisplay.py<br>
@@ -135,11 +135,11 @@ Locks or unlocks the account tied to the given play key.
 
 Displays the current count of online players, as well as what worlds are populated. Pushes this info, along with stats, via webhooks, to a Discord server channel.
 
-  
+
 
 If enabled, will also publish an MQTT JSON message with world info. This is used by the [player tracker board](https://github.com/HailStorm32/LU-Player-Tracker-Code) that I am developing (WIP)
 
-  
+
 
 #### Setup:
 
@@ -151,7 +151,7 @@ If enabled, will also publish an MQTT JSON message with world info. This is used
 
 4. Open `playerCntSettings.py` and add the credentials
 
-  
+
 
 4a. To get your webhook URL, open your Discord server and go to `Server Settings` -> `Integrations` -> `Webhooks`
 
@@ -185,7 +185,7 @@ STATS_WEBHOOK_URL = "2ND_URL_HERE" #URL of the webhook to send the stats
 
 6. I would recommend setting up a systemd process to start and stop the script
 
-  
+
 
 **To prevent inaccurate readings in the case of a server crash or shutdown, delete the last 24 hrs of the activity log every time you start your server.**
 
@@ -198,7 +198,7 @@ STATS_WEBHOOK_URL = "2ND_URL_HERE" #URL of the webhook to send the stats
 
 #### Description:
 *Automated Supervision System for Enforcement, Moderation, Basic Logs, & keY distribution (A.S.S.E.M.B.L.Y.)*
-A Discord bot that manages and distributes play keys, moderates character and pet names, keeps player records and more. 
+A Discord bot that manages and distributes play keys, moderates character and pet names, keeps player records and more.
 
 There are two main features combined in this script, the discord bot, and the automatic name approval. Both can be turned on/off independently by setting `ENABLE_BOT` and `ENABLE_NAME_APPROVAL` in the settings file.
 
@@ -206,11 +206,11 @@ There are two main features combined in this script, the discord bot, and the au
 
 ##### Discord Bot
 
-###### Key Distribution 
-Gives keys to users and keeps track of which user has a key. It will also automatically lock the LU account of a user if they leave the Discord (if `LOCK_ON_LEAVE` enabled). 
+###### Key Distribution
+Gives keys to users and keeps track of which user has a key. It will also automatically lock the LU account of a user if they leave the Discord (if `LOCK_ON_LEAVE` enabled).
 
 ###### Player Records
-Implements player records, allowing moderators to add, remove and display notes, offenses and warnings for a given user. 
+Implements player records, allowing moderators to add, remove and display notes, offenses and warnings for a given user.
 
 ###### In game Announcements
 Provides a way to send game announcements via a command. See [Game Announcement Commands](https://github.com/HailStorm32/hailstorms-darkflame-server-scripts?tab=readme-ov-file#game-announcement-commands)
@@ -219,8 +219,15 @@ Provides a way to send game announcements via a command. See [Game Announcement 
 Will keep track of the number of offenses a player has, and will escalate it if they are above the threshold `OFFENSE_THRESHOLD` .
 > NOTE: Requires `ENABLE_NAME_APPROVAL=True` and `TRACK_OFFENSES=True`
 
+###### Honeypot Moderation
+Monitors a configured `HONEYPOT_CHANNEL` and takes action when a non-exempt user posts there. The action is controlled with `HONEYPOT_ACTION`, which can be set to `kick` or `ban`. The bot will also timeout the user for `HONEYPOT_TIMEOUT_DURATION` seconds before taking the configured action.
+
+If `HONEYPOT_DELETE_MESSAGE_HISTORY` is enabled, the bot will delete that user's recent messages from all server text channels. The lookback window is controlled by `HONEYPOT_HISTORY_LENGTH_HOURS`.
+
+If `HONEYPOT_KEEP_ACTIVE` is enabled, the bot will post `HONEYPOT_KEEP_ACTIVE_MESSAGE` in the honeypot channel once per day, wait `HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS`, and then delete it. This keeps the channel active without leaving a visible bot message behind.
+
 ###### Whitelist Updating
-Using a command, will pull whitelist suggestions from `WHITELIST_CHANNEL` and add them to `WHITELIST_FILE`. Makes use of GPT4o to parse the messages for word suggestions and add word variations. 
+Using a command, will pull whitelist suggestions from `WHITELIST_CHANNEL` and add them to `WHITELIST_FILE`. Makes use of GPT4o to parse the messages for word suggestions and add word variations.
 
 Will also :
  - Removes the dcf file (still requires a manual server restart for whitelist to take effect)
@@ -249,13 +256,14 @@ If `TRACK_OFFENSES` is enabled, it will also log an offense to the record of the
 
    - Installation tab should look as follows:
    ![enter image description here](https://i.imgur.com/9Dz2nDF.png)
-   
+
    - Oauth2 tab should look like the following (use the generated link to invite the bot to your server):
-   ![enter image description here](https://i.imgur.com/6Bi6fuT.png)
+   ![enter image description here](https://i.imgur.com/CvqQMUu.png)
    - Bot tab should look like the following:
    ![enter image description here](https://i.imgur.com/imjMkux.png)
    - Lastly, go into the integration settings of the Discord server and make sure to assign a role that can use the commands
    - Also make sure that the channels you want the bot to have access to, also has the bot role assigned to it
+   - If using honeypot moderation, make sure the bot can read message history and manage messages in every channel where it should clean up user history. It also needs timeout, kick, and/or ban permissions depending on `HONEYPOT_ACTION`.
 6. Get and add an OpenAI API key (you can get one [here](https://platform.openai.com/docs/overview)) to `GPT_API_KEY`
 7. Run the Bot:
    ```sh
@@ -322,7 +330,7 @@ WantedBy=multi-user.target
 
 "Downloads" all the charxmls that belonging to single account. If selected, will also run the `xmlClean.py` script on each charxml.
 
-  
+
 
 #### Setup:
 
@@ -334,7 +342,7 @@ WantedBy=multi-user.target
 
 4. Open `charXmlPullerSettings.py` and add the credentials
 
-  
+
 
 ```
 
@@ -350,13 +358,13 @@ DATABASE_PASS = "passHere" #Database password
 
 5. Run the script and follow the onscreen prompts
 
-  
+
 
 If you are getting the following error `Authentication plugin 'caching_sha2_password' is not supported` run:
 
 `pip install --upgrade mysql-connector-python`
 
-  
+
 
 <br>
 
@@ -366,7 +374,7 @@ If you are getting the following error `Authentication plugin 'caching_sha2_pass
 
 Searches all accounts (exept those excluded in the settings file) in the database for contraband items. Uses the `contrabandIds` dictionary for what items are to be searched for.
 
-  
+
 
 #### Setup:
 
@@ -378,7 +386,7 @@ Searches all accounts (exept those excluded in the settings file) in the databas
 
 4. Open `contrabandCheckSettings.py` and add the credentials
 
-  
+
 
 ```
 
@@ -396,7 +404,7 @@ DATABASE_PASS = "passHere" #Database password
 
 6. If contraband is found, the account key, offending character name and list of contraband items will be printed
 
-  
+
 
 <br>
 
@@ -406,17 +414,17 @@ DATABASE_PASS = "passHere" #Database password
 
 Removes items and changes the account ID in a charxml.
 
-  
+
 
 #### Use:
 
 `xmlClean.py [charxml_path] [new_account_id]`
 
-  
+
 
 <br>
 
-  
+
 
 ## pullCharXml.sh<br>
 
@@ -424,17 +432,17 @@ Removes items and changes the account ID in a charxml.
 
 Pulls the character xml data for the give character ID and puts it in a file called `xmlData.txt`
 
-  
+
 
 #### Use:
 
 `./pullCharXml.sh [characterID]`
 
-  
+
 
 <br>
 
-  
+
 
 ## restore-database.sh<br>
 
@@ -442,21 +450,21 @@ Pulls the character xml data for the give character ID and puts it in a file cal
 
 Pulls the given database backup file from a Google Cloud storage bucket and restores the database from it.
 
-  
+
 
 > This script will need to be edited to work properly for your environment
 
-  
+
 
 #### Use:
 
 `./restore-database.sh [backupFileName]`
 
-  
+
 
 <br>
 
-  
+
 
 ## start__Server.sh<br>
 
@@ -464,15 +472,15 @@ Pulls the given database backup file from a Google Cloud storage bucket and rest
 
 Starts the server in a screen session and deletes the last 24hrs from the activity log table.
 
-  
+
 
 > This script will need to be edited to work properly for your environment
 
-  
+
 
 <br>
 
-  
+
 
 ## stop__Server.sh<br>
 
@@ -480,15 +488,15 @@ Starts the server in a screen session and deletes the last 24hrs from the activi
 
 Stops the server by sending `^C` to the screen session.
 
-  
+
 
 > This script will need to be edited to work properly for your environment
 
-  
+
 
 <br>
 
-  
+
 
 ## update-chatwhitelsit.sh<br>
 
@@ -496,15 +504,15 @@ Stops the server by sending `^C` to the screen session.
 
 Pulls the chat whitelist file from a Google Cloud storage bucket and replaces the whitelist currently in use by the server.
 
-  
+
 
 > This script will need to be edited to work properly for your environment
 
-  
+
 
 <br>
 
-  
+
 
 ## writeCharXml.sh<br>
 
@@ -512,14 +520,14 @@ Pulls the chat whitelist file from a Google Cloud storage bucket and replaces th
 
 Writes XML data in `xmlData.txt` to the given character ID. Creates a backup of the database before the write and saves it to `deleteMe.sql`
 
-  
+
 
 #### Use:
 
 `./writeCharXml.sh [characterID]`
 
-  
+
 
 <br>
 ----
-updated: 4/25/2025
+updated: 6/16/2026

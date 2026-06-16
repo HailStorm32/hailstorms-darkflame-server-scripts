@@ -9,7 +9,14 @@ import time
 from ASSEMBLY_bot_files._events import BotEvents
 from ASSEMBLY_bot_files._commands import BotCommands
 from ASSEMBLY_bot_files._helpers import BotHelpers
-from ASSEMBLY_bot_files.ASSEMBLY_botSettings import BOT_CHANNEL, ROLE_TO_PING, RSVD_OBJ_ID_START
+from ASSEMBLY_bot_files.ASSEMBLY_botSettings import (
+    BOT_CHANNEL,
+    HONEYPOT_CHANNEL,
+    HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS,
+    HONEYPOT_KEEP_ACTIVE_MESSAGE,
+    ROLE_TO_PING,
+    RSVD_OBJ_ID_START,
+)
 
 SECONDS_IN_DAY = 86400
 
@@ -196,6 +203,44 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             future.result()
         except Exception as e:
             print(f"{self._MODULE_NAME}: ERROR while reporting offenses: {e}")
+
+    def keep_honeypot_active(self):
+        """
+        Send and quickly delete a configured message in the honeypot channel.
+        """
+        future = asyncio.run_coroutine_threadsafe(
+            self._keep_honeypot_active(),
+            self._bot.loop
+        )
+        try:
+            future.result()
+        except Exception as e:
+            print(f"{self._MODULE_NAME}: ERROR while keeping honeypot active: {e}")
+
+    async def _keep_honeypot_active(self):
+        """
+        Keep the honeypot channel visible in Discord's recent channel activity.
+        """
+        if not self._bot_started:
+            print(f"{self._MODULE_NAME}: ERROR: Bot not started, unable to keep honeypot active")
+            return
+
+        while not self._bot.is_ready():
+            print(f"{self._MODULE_NAME}: Waiting for bot to be ready...")
+            await asyncio.sleep(5)
+
+        channel = discord.utils.get(self._bot.get_all_channels(), name=HONEYPOT_CHANNEL)
+        if channel is None:
+            print(f"{self._MODULE_NAME}: ERROR: Channel '{HONEYPOT_CHANNEL}' not found! Unable to keep honeypot active.")
+            return
+
+        message = await channel.send(HONEYPOT_KEEP_ACTIVE_MESSAGE)
+        await asyncio.sleep(HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS)
+
+        try:
+            await message.delete()
+        except discord.NotFound:
+            pass
 
     async def _report_user_offenses(self, users_to_report):
         """
@@ -703,6 +748,5 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         # Close the individual database connection if it exists
         if hasattr(self, "_dbConnection") and self._dbConnection.is_connected():
             self._dbConnection.close()
-
 
 
