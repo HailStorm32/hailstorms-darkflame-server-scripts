@@ -19,8 +19,10 @@ hardcore_coin_keep=""
 # STATIC SETTINGS:
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 service_home="$(dirname -- "$script_dir")"
-dashboard_config="/etc/nginx/sites-available/nexus_universe.online"
-dashboard_enabled_config="/etc/nginx/sites-enabled/nexus_universe.online"
+main_site_config="/etc/nginx/sites-available/nexusuniverse.online"
+main_site_enabled_config="/etc/nginx/sites-enabled/nexusuniverse.online"
+dashboard_config="/etc/nginx/sites-available/dashboard.nexusuniverse.online"
+dashboard_enabled_config="/etc/nginx/sites-enabled/dashboard.nexusuniverse.online"
 dashboard_settings_file="$service_home/Services/NexusDashboardapp/settings.py"
 assembly_bot_settings_file="$script_dir/ASSEMBLY_bot_files/ASSEMBLY_botSettings.py"
 server_config_dir="$service_home/GameServer/DarkflameServer/build"
@@ -161,8 +163,13 @@ echo "###########################################################"
 echo "# NGINX CONFIGURATION"
 echo "###########################################################"
 
-# Remove the nexus universe site from sites-enabled
-echo "Removing nexus universe site from nginx..."
+# Remove the main nexus universe website from nginx completely.
+echo "Removing nexusuniverse.online from nginx..."
+rm -f "$main_site_enabled_config"
+rm -f "$main_site_config"
+
+# Keep the dashboard disabled until the script is run with --renew.
+echo "Disabling dashboard.nexusuniverse.online in nginx..."
 rm -f "$dashboard_enabled_config"
 
 # Update the nginx nexusdashboard config with the hardcore address and server IP
