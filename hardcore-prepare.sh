@@ -17,11 +17,13 @@ hardcore_disabled_worlds=""
 hardcore_coin_keep=""
 
 # STATIC SETTINGS:
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+service_home="$(dirname -- "$script_dir")"
 dashboard_config="/etc/nginx/sites-available/nexus_universe.online"
 dashboard_enabled_config="/etc/nginx/sites-enabled/nexus_universe.online"
-dashboard_settings_file="$HOME/Services/NexusDashboardapp/settings.py"
-assembly_bot_settings_file="$HOME/hailstorms-darkflame-server-scripts/ASSEMBLY_bot_files/ASSEMBLY_botSettings.py"
-server_config_dir="$HOME/GameServer/DarkflameServer/build"
+dashboard_settings_file="$service_home/Services/NexusDashboardapp/settings.py"
+assembly_bot_settings_file="$script_dir/ASSEMBLY_bot_files/ASSEMBLY_botSettings.py"
+server_config_dir="$service_home/GameServer/DarkflameServer/build"
 master_config_file="$server_config_dir/masterconfig.ini"
 shared_config_file="$server_config_dir/sharedconfig.ini"
 world_config_file="$server_config_dir/worldconfig.ini"
@@ -80,9 +82,17 @@ fi
 echo "This script will prepare your system for hardcore mode. Certain things will be permanently changed, so please read the instructions carefully before proceeding."
 prompt_non_empty "Do you want to continue? (yes/no or y/n): " response
 
-if [ "$response" = "no" ] || [ "$response" = "n" ]; then
-	exit 0
-fi
+case "${response,,}" in
+	yes|y)
+		;;
+	no|n)
+		exit 0
+		;;
+	*)
+		echo "Invalid response. Enter yes, y, no, or n."
+		exit 1
+		;;
+esac
 
 echo -e "\n\n\n"
 echo "###########################################################"
@@ -167,11 +177,31 @@ fi
 dashboard_config_backup="${dashboard_config}.bak.$(date +%Y%m%d%H%M%S)"
 cp "$dashboard_config" "$dashboard_config_backup"
 
-# Use sed to replace the main server dashboard address and IP with the hardcore ones
-sed -i \
-	-e "s/${main_server_dashboard_address}/${hardcore_dashboard_address}/g" \
-	-e "s/${main_server_ip}/${server_ip}/g" \
-	"$dashboard_config"
+# Replace the current dashboard address and IP as literal strings.
+DASHBOARD_CONFIG="$dashboard_config" \
+MAIN_SERVER_DASHBOARD_ADDRESS="$main_server_dashboard_address" \
+HARDCORE_DASHBOARD_ADDRESS="$hardcore_dashboard_address" \
+MAIN_SERVER_IP="$main_server_ip" \
+SERVER_IP="$server_ip" \
+python3 - <<'PY'
+import os
+from pathlib import Path
+
+config_path = Path(os.environ["DASHBOARD_CONFIG"])
+content = config_path.read_text()
+
+replacements = (
+	("dashboard address", os.environ["MAIN_SERVER_DASHBOARD_ADDRESS"], os.environ["HARDCORE_DASHBOARD_ADDRESS"]),
+	("server IP", os.environ["MAIN_SERVER_IP"], os.environ["SERVER_IP"]),
+)
+
+for label, current_value, new_value in replacements:
+	if current_value not in content:
+		raise SystemExit(f"Current {label} not found in nginx config: {current_value}")
+	content = content.replace(current_value, new_value)
+
+config_path.write_text(content)
+PY
 
 echo "nginx nexusdashboard config updated successfully."
 
@@ -181,18 +211,35 @@ echo "###########################################################"
 echo "# DATABASE CONFIGURATION"
 echo "###########################################################"
 
+mysql_credentials_file="$(mktemp)"
+chmod 600 "$mysql_credentials_file"
+trap 'rm -f "$mysql_credentials_file"' EXIT
+
+write_mysql_credentials() {
+	local password="$1"
+	password="${password//\\/\\\\}"
+	password="${password//\"/\\\"}"
+	printf '[client]\nuser=darkflame\npassword="%s"\n' "$password" > "$mysql_credentials_file"
+}
+
+write_mysql_credentials "$main_db_password"
+
 echo "Updating darkflame database user password..."
-mysqladmin -u darkflame --password="$main_db_password" password "$dashboard_db_password"
+escaped_dashboard_db_password="${dashboard_db_password//\'/\'\'}"
+printf "ALTER USER CURRENT_USER() IDENTIFIED BY '%s';\n" "$escaped_dashboard_db_password" | \
+	mysql --defaults-extra-file="$mysql_credentials_file"
 echo "darkflame database user password updated successfully."
+
+write_mysql_credentials "$dashboard_db_password"
 
 # Dropping BLU database if it exists, since it's not needed for hardcore mode
 echo "Dropping BLU database if it exists..."
-mysql -u darkflame --password="$dashboard_db_password" -e "DROP DATABASE IF EXISTS blu;"
+mysql --defaults-extra-file="$mysql_credentials_file" -e "DROP DATABASE IF EXISTS blu;"
 echo "BLU database dropped successfully (if it existed)."
 
 # Remove existing gameplay and social data for hardcore mode.
 echo "Clearing selected darkflame tables..."
-mysql -u darkflame --password="$dashboard_db_password" darkflame <<'SQL'
+mysql --defaults-extra-file="$mysql_credentials_file" darkflame <<'SQL'
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE leaderboard;
 TRUNCATE TABLE mail;
