@@ -29,6 +29,7 @@ server_config_dir="$service_home/GameServer/DarkflameServer/build"
 master_config_file="$server_config_dir/masterconfig.ini"
 shared_config_file="$server_config_dir/sharedconfig.ini"
 world_config_file="$server_config_dir/worldconfig.ini"
+darkflame_service_file="/etc/systemd/system/darkflame.service"
 
 renew_only=false
 
@@ -447,6 +448,48 @@ update_ini(os.environ["WORLD_CONFIG_FILE"], {
 PY
 
 echo "Darkflame server config files updated successfully."
+
+echo "Updating darkflame systemd service database password..."
+
+if [ ! -f "$darkflame_service_file" ]; then
+	echo "Darkflame systemd service file not found: $darkflame_service_file"
+	exit 1
+fi
+
+darkflame_service_backup="${darkflame_service_file}.bak.$(date +%Y%m%d%H%M%S)"
+cp "$darkflame_service_file" "$darkflame_service_backup"
+
+DARKFLAME_SERVICE_FILE="$darkflame_service_file" \
+DASHBOARD_DB_PASSWORD="$dashboard_db_password" \
+python3 - <<'PY'
+import os
+import re
+from pathlib import Path
+
+service_path = Path(os.environ["DARKFLAME_SERVICE_FILE"])
+content = service_path.read_text()
+password = os.environ["DASHBOARD_DB_PASSWORD"]
+
+# Quote the password for systemd's command-line parser and escape specifier markers.
+quoted_password_argument = '"-p' + password.replace("\\", "\\\\").replace('"', '\\"').replace("%", "%%") + '"'
+pattern = re.compile(
+	r'^(ExecStartPre=.*?/mysql\s+-u\s+darkflame\s+)-p(?:"(?:\\.|[^"])*"|\S+)(\s+-D\s+darkflame\b.*)$',
+	re.MULTILINE,
+)
+
+content, replacements_made = pattern.subn(
+	lambda match: f"{match.group(1)}{quoted_password_argument}{match.group(2)}",
+	content,
+	count=1,
+)
+if replacements_made != 1:
+	raise SystemExit("Failed to find exactly one darkflame mysql ExecStartPre password")
+
+service_path.write_text(content)
+PY
+
+systemctl daemon-reload
+echo "Darkflame systemd service updated successfully."
 
 # Start the darkflame server service again
 echo "Starting darkflame server service..."
