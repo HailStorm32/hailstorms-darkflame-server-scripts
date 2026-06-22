@@ -423,7 +423,7 @@ server_ip = os.environ["SERVER_IP"]
 dashboard_db_password = os.environ["DASHBOARD_DB_PASSWORD"]
 
 update_ini(os.environ["MASTER_CONFIG_FILE"], {
-	"external_ip": server_ip,
+	"master_ip": server_ip,
 })
 
 update_ini(os.environ["SHARED_CONFIG_FILE"], {
