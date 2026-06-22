@@ -297,6 +297,7 @@ TRUNCATE TABLE friends;
 TRUNCATE TABLE activity_log;
 TRUNCATE TABLE ugc;
 TRUNCATE TABLE ugc_modular_build;
+TRUNCATE TABLE reports;
 TRUNCATE TABLE charxml;
 SET FOREIGN_KEY_CHECKS = 1;
 SQL
@@ -327,6 +328,7 @@ import os
 import re
 import secrets
 from pathlib import Path
+from urllib.parse import quote_plus
 
 settings_path = Path(os.environ["DASHBOARD_SETTINGS_FILE"])
 content = settings_path.read_text()
@@ -334,7 +336,7 @@ content = settings_path.read_text()
 replacements = {
 	r'^APP_NAME = ".*"$': 'APP_NAME = "Hardcore Dashboard"',
 	r'^APP_SECRET_KEY = ".*"$': f"APP_SECRET_KEY = {secrets.token_urlsafe(48)!r}",
-	r'^APP_DATABASE_URI = ".*"$': f"APP_DATABASE_URI = {'mysql+pymysql://darkflame:' + os.environ['DASHBOARD_DB_PASSWORD'] + '@localhost/darkflame'!r}",
+	r'^APP_DATABASE_URI = ".*"$': f"APP_DATABASE_URI = {'mysql+pymysql://darkflame:' + quote_plus(os.environ['DASHBOARD_DB_PASSWORD']) + '@localhost/darkflame'!r}",
 	r"^RECAPTCHA_PUBLIC_KEY = '.*'$": f"RECAPTCHA_PUBLIC_KEY = {os.environ['CAPTCHA_SITE_KEY']!r}",
 	r"^RECAPTCHA_PRIVATE_KEY = '.*'$": f"RECAPTCHA_PRIVATE_KEY = {os.environ['CAPTCHA_SECRET_KEY']!r}",
 }
