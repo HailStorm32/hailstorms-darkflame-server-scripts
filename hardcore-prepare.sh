@@ -69,6 +69,41 @@ if [ "$renew_only" = true ]; then
 	prompt_non_empty "Enter the hardcore dashboard address: " hardcore_dashboard_address
 	prompt_non_empty "Enter the email address for Certbot renewal notices: " certbot_email
 
+	if [ ! -f "$dashboard_config" ]; then
+		echo "Nginx dashboard config not found: $dashboard_config"
+		exit 1
+	fi
+
+	dashboard_config_backup="${dashboard_config}.bak.$(date +%Y%m%d%H%M%S)"
+	cp "$dashboard_config" "$dashboard_config_backup"
+
+	echo "Removing stale TLS certificate settings from nginx dashboard config..."
+	DASHBOARD_CONFIG="$dashboard_config" python3 - <<'PY'
+import os
+import re
+from pathlib import Path
+
+config_path = Path(os.environ["DASHBOARD_CONFIG"])
+lines = config_path.read_text().splitlines(keepends=True)
+patterns = (
+	re.compile(r"^\s*listen\s+(?:\[::\]:)?443\b.*\bssl\b.*;\s*(?:#.*)?$"),
+	re.compile(r"^\s*ssl_certificate(?:_key)?\s+.*;\s*(?:#.*)?$"),
+	re.compile(r"^\s*include\s+/etc/letsencrypt/options-ssl-nginx\.conf\s*;\s*(?:#.*)?$"),
+	re.compile(r"^\s*ssl_dhparam\s+/etc/letsencrypt/ssl-dhparams\.pem\s*;\s*(?:#.*)?$"),
+)
+
+retained_lines = []
+removed_lines = 0
+for line in lines:
+	if any(pattern.match(line.rstrip("\r\n")) for pattern in patterns):
+		removed_lines += 1
+		continue
+	retained_lines.append(line)
+
+config_path.write_text("".join(retained_lines))
+print(f"Removed {removed_lines} stale TLS configuration line(s).")
+PY
+
 	echo "Enabling nginx nexusdashboard site..."
 	ln -sf "$dashboard_config" "$dashboard_enabled_config"
 
