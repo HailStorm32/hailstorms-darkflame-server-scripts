@@ -23,7 +23,7 @@ main_site_config="/etc/nginx/sites-available/nexusuniverse.online"
 main_site_enabled_config="/etc/nginx/sites-enabled/nexusuniverse.online"
 dashboard_config="/etc/nginx/sites-available/dashboard.nexusuniverse.online"
 dashboard_enabled_config="/etc/nginx/sites-enabled/dashboard.nexusuniverse.online"
-dashboard_settings_file="$service_home/Services/NexusDashboardapp/settings.py"
+dashboard_settings_file="$service_home/Services/NexusDashboard/app/settings.py"
 assembly_bot_settings_file="$script_dir/ASSEMBLY_bot_files/ASSEMBLY_botSettings.py"
 server_config_dir="$service_home/GameServer/DarkflameServer/build"
 master_config_file="$server_config_dir/masterconfig.ini"
@@ -149,6 +149,10 @@ clear
 prompt_non_empty "Enter the main server database password: " main_db_password silent
 clear
 
+# Prompt for the BLU database user password
+prompt_non_empty "Enter the darkflameBLU database password: " blu_db_password silent
+clear
+
 # Prompt for hardcore database password
 prompt_non_empty "Enter the hardcore server database password: " dashboard_db_password silent
 clear
@@ -223,13 +227,14 @@ chmod 600 "$mysql_credentials_file"
 trap 'rm -f "$mysql_credentials_file"' EXIT
 
 write_mysql_credentials() {
-	local password="$1"
+	local user="$1"
+	local password="$2"
 	password="${password//\\/\\\\}"
 	password="${password//\"/\\\"}"
-	printf '[client]\nuser=darkflame\npassword="%s"\n' "$password" > "$mysql_credentials_file"
+	printf '[client]\nuser=%s\npassword="%s"\n' "$user" "$password" > "$mysql_credentials_file"
 }
 
-write_mysql_credentials "$main_db_password"
+write_mysql_credentials "darkflame" "$main_db_password"
 
 echo "Updating darkflame database user password..."
 escaped_dashboard_db_password="${dashboard_db_password//\'/\'\'}"
@@ -237,12 +242,14 @@ printf "SET PASSWORD = PASSWORD('%s');\n" "$escaped_dashboard_db_password" | \
 	mysql --defaults-extra-file="$mysql_credentials_file"
 echo "darkflame database user password updated successfully."
 
-write_mysql_credentials "$dashboard_db_password"
+write_mysql_credentials "darkflameBLU" "$blu_db_password"
 
 # Dropping BLU database if it exists, since it's not needed for hardcore mode
 echo "Dropping BLU database if it exists..."
 mysql --defaults-extra-file="$mysql_credentials_file" -e "DROP DATABASE IF EXISTS blu;"
 echo "BLU database dropped successfully (if it existed)."
+
+write_mysql_credentials "darkflame" "$dashboard_db_password"
 
 # Remove existing gameplay and social data for hardcore mode.
 echo "Clearing selected darkflame tables..."
