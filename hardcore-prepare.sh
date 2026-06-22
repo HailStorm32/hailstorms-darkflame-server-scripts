@@ -149,9 +149,6 @@ clear
 prompt_non_empty "Enter the main server database password: " main_db_password silent
 clear
 
-# Prompt for the BLU database user password
-prompt_non_empty "Enter the darkflameBLU database password: " blu_db_password silent
-clear
 
 # Prompt for hardcore database password
 prompt_non_empty "Enter the hardcore server database password: " dashboard_db_password silent
@@ -227,14 +224,13 @@ chmod 600 "$mysql_credentials_file"
 trap 'rm -f "$mysql_credentials_file"' EXIT
 
 write_mysql_credentials() {
-	local user="$1"
-	local password="$2"
+	local password="$1"
 	password="${password//\\/\\\\}"
 	password="${password//\"/\\\"}"
-	printf '[client]\nuser=%s\npassword="%s"\n' "$user" "$password" > "$mysql_credentials_file"
+	printf '[client]\nuser=darkflame\npassword="%s"\n' "$password" > "$mysql_credentials_file"
 }
 
-write_mysql_credentials "darkflame" "$main_db_password"
+write_mysql_credentials "$main_db_password"
 
 echo "Updating darkflame database user password..."
 escaped_dashboard_db_password="${dashboard_db_password//\'/\'\'}"
@@ -242,14 +238,12 @@ printf "SET PASSWORD = PASSWORD('%s');\n" "$escaped_dashboard_db_password" | \
 	mysql --defaults-extra-file="$mysql_credentials_file"
 echo "darkflame database user password updated successfully."
 
-write_mysql_credentials "darkflameBLU" "$blu_db_password"
+write_mysql_credentials "$dashboard_db_password"
 
 # Dropping BLU database if it exists, since it's not needed for hardcore mode
 echo "Dropping BLU database if it exists..."
-mysql --defaults-extra-file="$mysql_credentials_file" -e "DROP DATABASE IF EXISTS blu;"
+mysql --defaults-extra-file="$mysql_credentials_file" -e "DROP DATABASE IF EXISTS darkflameBLU;"
 echo "BLU database dropped successfully (if it existed)."
-
-write_mysql_credentials "darkflame" "$dashboard_db_password"
 
 # Remove existing gameplay and social data for hardcore mode.
 echo "Clearing selected darkflame tables..."
