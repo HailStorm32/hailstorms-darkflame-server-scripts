@@ -233,7 +233,7 @@ write_mysql_credentials "$main_db_password"
 
 echo "Updating darkflame database user password..."
 escaped_dashboard_db_password="${dashboard_db_password//\'/\'\'}"
-printf "ALTER USER CURRENT_USER() IDENTIFIED BY '%s';\n" "$escaped_dashboard_db_password" | \
+printf "SET PASSWORD = PASSWORD('%s');\n" "$escaped_dashboard_db_password" | \
 	mysql --defaults-extra-file="$mysql_credentials_file"
 echo "darkflame database user password updated successfully."
 
