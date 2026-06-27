@@ -196,7 +196,8 @@ HONEYPOT_ACTION = "kick" #Action to take when a user interacts with the honeypot
 HONEYPOT_DELETE_MESSAGE_HISTORY = True #Whether to delete the message history of a user that interacted with the honeypot
 HONEYPOT_HISTORY_LENGTH_HOURS = 2 #How far back to delete messages in hours (if HONEYPOT_DELETE_MESSAGE_HISTORY is True)
 HONEYPOT_KEEP_ACTIVE = True #Whether to keep the honeypot active by periodically sending messages in the honeypot channel (then deletes them)
-HONEYPOT_KEEP_ACTIVE_MESSAGE = "Keeping channel alive..." #Message to briefly send once per day when HONEYPOT_KEEP_ACTIVE is True
+HONEYPOT_KEEP_ACTIVE_FREQ = 24 * SEC_IN_HOUR #How often to send the keep-active message when HONEYPOT_KEEP_ACTIVE is True
+HONEYPOT_KEEP_ACTIVE_MESSAGE = "Keeping channel alive..." #Message to briefly send when HONEYPOT_KEEP_ACTIVE is True
 HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS = 5 #How long to wait before deleting the keep-active message
 
 

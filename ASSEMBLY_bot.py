@@ -239,11 +239,11 @@ if __name__ == "__main__":
 
             offense_report_target = time.time() + OFFENSE_REPORT_FREQ
 
-        # Keep the honeypot channel active once per day.
+        # Keep the honeypot channel active on the configured interval.
         if ENABLE_BOT and HONEYPOT_KEEP_ACTIVE and time.time() > honeypot_keep_active_target:
             print(MODULE_NAME + ": Keeping honeypot active...")
             AssemblyBotInstance.keep_honeypot_active()
-            honeypot_keep_active_target = time.time() + (24 * SEC_IN_HOUR)
+            honeypot_keep_active_target = time.time() + HONEYPOT_KEEP_ACTIVE_FREQ
 
         # Check if any threads are dead and restart them
         if time.time() > task_check_target:

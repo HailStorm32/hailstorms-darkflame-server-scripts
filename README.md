@@ -224,7 +224,7 @@ Monitors a configured `HONEYPOT_CHANNEL` and takes action when a non-exempt user
 
 If `HONEYPOT_DELETE_MESSAGE_HISTORY` is enabled, the bot will delete that user's recent messages from all server text channels. The lookback window is controlled by `HONEYPOT_HISTORY_LENGTH_HOURS`.
 
-If `HONEYPOT_KEEP_ACTIVE` is enabled, the bot will post `HONEYPOT_KEEP_ACTIVE_MESSAGE` in the honeypot channel once per day, wait `HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS`, and then delete it. This keeps the channel active without leaving a visible bot message behind.
+If `HONEYPOT_KEEP_ACTIVE` is enabled, the bot will post `HONEYPOT_KEEP_ACTIVE_MESSAGE` in the honeypot channel every `HONEYPOT_KEEP_ACTIVE_FREQ` seconds, wait `HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS`, and then delete it. This keeps the channel active without leaving a visible bot message behind.
 
 ###### Whitelist Updating
 Using a command, will pull whitelist suggestions from `WHITELIST_CHANNEL` and add them to `WHITELIST_FILE`. Makes use of GPT4o to parse the messages for word suggestions and add word variations.
@@ -530,4 +530,4 @@ Writes XML data in `xmlData.txt` to the given character ID. Creates a backup of 
 
 <br>
 ----
-updated: 6/16/2026
+updated: 6/26/2026
