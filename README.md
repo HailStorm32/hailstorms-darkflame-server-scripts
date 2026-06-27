@@ -224,7 +224,9 @@ Monitors a configured `HONEYPOT_CHANNEL` and takes action when a non-exempt user
 
 If `HONEYPOT_DELETE_MESSAGE_HISTORY` is enabled, the bot will delete that user's recent messages from all server text channels. The lookback window is controlled by `HONEYPOT_HISTORY_LENGTH_HOURS`.
 
-If `HONEYPOT_KEEP_ACTIVE` is enabled, the bot will post `HONEYPOT_KEEP_ACTIVE_MESSAGE` in the honeypot channel every `HONEYPOT_KEEP_ACTIVE_FREQ` seconds, wait `HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS`, and then delete it. This keeps the channel active without leaving a visible bot message behind.
+If `HONEYPOT_KEEP_ACTIVE` is enabled, the bot will post one randomly selected message from `HONEYPOT_KEEP_ACTIVE_MESSAGES` in the honeypot channel every `HONEYPOT_KEEP_ACTIVE_FREQ` seconds, wait `HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS`, and then delete it. Set `HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS` to add or subtract a random number of seconds from each interval. For example, a one-hour frequency with 10 minutes of randomness will post every 50 to 70 minutes.
+
+If `HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE` is enabled, the bot checks the most recent non-bot message in the honeypot channel during each keep-active cycle. When that message is older than `HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS`, it pings `ROLE_TO_PING` in `BOT_CHANNEL` with `HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE`. The alert is deduplicated until a newer human message appears.
 
 ###### Whitelist Updating
 Using a command, will pull whitelist suggestions from `WHITELIST_CHANNEL` and add them to `WHITELIST_FILE`. Makes use of GPT4o to parse the messages for word suggestions and add word variations.

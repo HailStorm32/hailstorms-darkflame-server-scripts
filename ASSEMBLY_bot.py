@@ -38,6 +38,7 @@
 '''
 import json
 import mysql.connector
+import random
 import sys
 import threading
 import time
@@ -243,7 +244,11 @@ if __name__ == "__main__":
         if ENABLE_BOT and HONEYPOT_KEEP_ACTIVE and time.time() > honeypot_keep_active_target:
             print(MODULE_NAME + ": Keeping honeypot active...")
             AssemblyBotInstance.keep_honeypot_active()
-            honeypot_keep_active_target = time.time() + HONEYPOT_KEEP_ACTIVE_FREQ
+            keep_active_offset = random.uniform(
+                -HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS,
+                HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS,
+            )
+            honeypot_keep_active_target = time.time() + max(1, HONEYPOT_KEEP_ACTIVE_FREQ + keep_active_offset)
 
         # Check if any threads are dead and restart them
         if time.time() > task_check_target:

@@ -197,8 +197,14 @@ HONEYPOT_DELETE_MESSAGE_HISTORY = True #Whether to delete the message history of
 HONEYPOT_HISTORY_LENGTH_HOURS = 2 #How far back to delete messages in hours (if HONEYPOT_DELETE_MESSAGE_HISTORY is True)
 HONEYPOT_KEEP_ACTIVE = True #Whether to keep the honeypot active by periodically sending messages in the honeypot channel (then deletes them)
 HONEYPOT_KEEP_ACTIVE_FREQ = 24 * SEC_IN_HOUR #How often to send the keep-active message when HONEYPOT_KEEP_ACTIVE is True
-HONEYPOT_KEEP_ACTIVE_MESSAGE = "Keeping channel alive..." #Message to briefly send when HONEYPOT_KEEP_ACTIVE is True
+HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS = 0 #Seconds to randomly add or subtract from HONEYPOT_KEEP_ACTIVE_FREQ
+HONEYPOT_KEEP_ACTIVE_MESSAGES = [ #Messages to randomly choose from for the keep-active post
+    "Keeping channel alive...",
+]
 HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS = 5 #How long to wait before deleting the keep-active message
+HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE = False #Whether to ping ROLE_TO_PING when the last human honeypot message is too old
+HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS = 7 #Ping when the last human honeypot message is older than this many days
+HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE = "Honeypot has not had a human message recently." #Message sent with the role ping
 
 
 ##############################
@@ -211,4 +217,19 @@ if PERIODIC_FREQUENCY > OFFENSE_REPORT_FREQ:
     sys.exit(1)
 if PERIODIC_FREQUENCY > TASK_CHECK_FREQ:
     print("PERIODIC_FREQUENCY must be less than TASK_CHECK_FREQ")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_FREQ <= 0:
+    print("HONEYPOT_KEEP_ACTIVE_FREQ must be greater than 0")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS < 0:
+    print("HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS must be greater than or equal to 0")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE and not HONEYPOT_KEEP_ACTIVE_MESSAGES:
+    print("HONEYPOT_KEEP_ACTIVE_MESSAGES must contain at least one message when HONEYPOT_KEEP_ACTIVE is True")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE and HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS <= 0:
+    print("HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS must be greater than 0")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE and not HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE:
+    print("HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE must not be empty when stale human message pings are enabled")
     sys.exit(1)

@@ -1,8 +1,10 @@
 import asyncio
 import discord
+from datetime import timedelta
 from discord.ext import commands
 import mysql.connector
 import mysql.connector.pooling
+import random
 from mysql.connector import Error
 import sys
 import time
@@ -13,7 +15,10 @@ from ASSEMBLY_bot_files.ASSEMBLY_botSettings import (
     BOT_CHANNEL,
     HONEYPOT_CHANNEL,
     HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS,
-    HONEYPOT_KEEP_ACTIVE_MESSAGE,
+    HONEYPOT_KEEP_ACTIVE_MESSAGES,
+    HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE,
+    HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS,
+    HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE,
     ROLE_TO_PING,
     RSVD_OBJ_ID_START,
 )
@@ -46,6 +51,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             None
         """
         self._MODULE_NAME = "[ASSEMBLY_bot_discord]"
+        self._last_honeypot_stale_alert_key = None
 
         self.__discordToken = discordToken
 
@@ -234,7 +240,14 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             print(f"{self._MODULE_NAME}: ERROR: Channel '{HONEYPOT_CHANNEL}' not found! Unable to keep honeypot active.")
             return
 
-        message = await channel.send(HONEYPOT_KEEP_ACTIVE_MESSAGE)
+        await self._report_stale_honeypot_if_needed(channel)
+
+        keep_active_messages = [msg for msg in HONEYPOT_KEEP_ACTIVE_MESSAGES if msg]
+        if not keep_active_messages:
+            print(f"{self._MODULE_NAME}: ERROR: No HONEYPOT_KEEP_ACTIVE_MESSAGES configured. Unable to keep honeypot active.")
+            return
+
+        message = await channel.send(random.choice(keep_active_messages))
         await asyncio.sleep(HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS)
 
         try:
@@ -242,6 +255,48 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         except discord.NotFound:
             pass
 
+    async def _report_stale_honeypot_if_needed(self, honeypot_channel):
+        """
+        Ping the configured role if the honeypot has gone too long without a human message.
+        """
+        if not HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE:
+            return
+
+        now = discord.utils.utcnow()
+        cutoff = now - timedelta(days=HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS)
+        last_human_message = None
+
+        async for msg in honeypot_channel.history(limit=None):
+            if not msg.author.bot:
+                last_human_message = msg
+                break
+
+        if last_human_message and last_human_message.created_at > cutoff:
+            self._last_honeypot_stale_alert_key = None
+            return
+
+        stale_alert_key = str(last_human_message.id) if last_human_message else "never"
+        if self._last_honeypot_stale_alert_key == stale_alert_key:
+            return
+
+        bot_channel = discord.utils.get(honeypot_channel.guild.text_channels, name=BOT_CHANNEL)
+        if bot_channel is None:
+            print(f"{self._MODULE_NAME}: ERROR: Channel '{BOT_CHANNEL}' not found! Unable to send honeypot stale activity alert.")
+            return
+
+        role = discord.utils.get(honeypot_channel.guild.roles, name=ROLE_TO_PING)
+        if role is None:
+            print(f"{self._MODULE_NAME}: ERROR: Role {ROLE_TO_PING} not found! Unable to send honeypot stale activity alert.")
+            return
+
+        if last_human_message:
+            age_days = (now - last_human_message.created_at).days
+            detail = f"Last human message in #{honeypot_channel.name} was {age_days} day(s) ago."
+        else:
+            detail = f"No human messages were found in #{honeypot_channel.name}."
+
+        await bot_channel.send(f"{role.mention} {HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE}\n{detail}")
+        self._last_honeypot_stale_alert_key = stale_alert_key
     async def _report_user_offenses(self, users_to_report):
         """
         Report user offenses to the bot channel with interactive buttons.
