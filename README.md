@@ -306,6 +306,7 @@ If `TRACK_OFFENSES` is enabled, it will also log an offense to the record of the
 - **`/unlockaccount <username or play_key>`**: Unlocks the account of the specified user.
 - **`/showkey <username>`**: Shows the play key for the specified user.
 - **`/showaccount <play_key>`**: Shows the Discord account name tied to the specified play key.
+- **`/relinkaccount <username, play_key or uuid> [new_user] [new_uuid]`**: Relinks the play key/account to another Discord user (give either `new_user` or a raw `new_uuid`). Refuses if the target already has a play key; any BLU transfer rows move with it.
 
 ##### Record Commands
 - **`/addnote <username> <note>`**: Adds a note to the specified user's record.

@@ -640,3 +640,62 @@ class BotCommands():
         async def _reset_migration_cmd_error(interaction: discord.Interaction, error):
             if isinstance(error, discord.app_commands.MissingRole):
                 await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)
+
+
+        ##############
+        # Command: relinkaccount
+        ##############
+        @self._bot.tree.command(name="relinkaccount", description="Relink a play key/account to another Discord user")
+        @discord.app_commands.describe(identifier="Current discord username, play key, or discord UUID",
+                                       new_user="The Discord user to link the account to",
+                                       new_uuid="Raw Discord UUID to link to (for users not in the server)")
+        @discord.app_commands.checks.has_role(COMMAND_ROLE)
+        async def _relink_account_cmd(interaction: discord.Interaction, identifier: str, new_user: discord.User | None = None, new_uuid: str | None = None):
+            # Resolve the target uuid
+            if (new_user is None) == (new_uuid is None):
+                await interaction.response.send_message('Provide exactly one of `new_user` or `new_uuid`', ephemeral=True)
+                return
+            if new_user is not None:
+                target_uuid = str(new_user.id)
+            else:
+                target_uuid = new_uuid.strip()
+                if not target_uuid.isdigit():
+                    await interaction.response.send_message(f'`{target_uuid}` is not a valid Discord UUID', ephemeral=True)
+                    return
+
+            # Resolve the current uuid
+            if self._is_playkey(identifier):
+                old_uuid = await asyncio.to_thread(self._get_user_id_from_key, identifier)
+                if not old_uuid:
+                    await interaction.response.send_message(f'No user found for play key `{identifier}`', ephemeral=True)
+                    return
+            else:
+                member = discord.utils.get(interaction.guild.members, name=identifier)
+                if member:
+                    old_uuid = str(member.id)
+                elif identifier.isdigit():
+                    old_uuid = identifier
+                else:
+                    await interaction.response.send_message(f'User with name/play-key/uuid `{identifier}` not found', ephemeral=True)
+                    return
+
+            success, message, key_string = await asyncio.to_thread(self._relink_account, old_uuid, target_uuid)
+            if not success:
+                await interaction.response.send_message(f'⚠️ Unable to relink account: {message}', ephemeral=True)
+                return
+
+            await interaction.response.send_message(message, ephemeral=True)
+
+            # Log the action to the bot channel
+            guild = interaction.guild
+            botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL)
+            logMessage = f'Play key `{key_string}` relinked from `{old_uuid}` (<@{old_uuid}>) to `{target_uuid}` (<@{target_uuid}>) by `{interaction.user}`.'
+            if botMessageChannel:
+                await botMessageChannel.send(logMessage, allowed_mentions=discord.AllowedMentions.none())
+            else:
+                print(f"{self._MODULE_NAME}: {logMessage}")
+
+        @_relink_account_cmd.error
+        async def _relink_account_cmd_error(interaction: discord.Interaction, error):
+            if isinstance(error, discord.app_commands.MissingRole):
+                await interaction.response.send_message("You do not have the required role to use this command.", ephemeral=True)

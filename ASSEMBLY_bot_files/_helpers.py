@@ -634,6 +634,65 @@ class BotHelpers():
         return result[0] if result else None
 
 
+    def _relink_account(self, old_uuid, new_uuid):
+        """
+        Relinks the play key (and therefore the game account) tied to one Discord UUID to another Discord UUID.
+        Any blu_transfers rows for the old UUID are moved to the new UUID in the same transaction.
+
+        Parameters:
+            old_uuid (str | int): The Discord UUID currently linked to the play key.
+            new_uuid (str | int): The Discord UUID to link the play key to.
+
+        Returns:
+            tuple(bool, str, str | None): (success, message, key_string). On failure nothing is changed.
+        """
+        old_uuid = str(old_uuid)
+        new_uuid = str(new_uuid)
+
+        if old_uuid == new_uuid:
+            return False, 'The old and new Discord UUIDs are the same', None
+
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            return False, 'No DB connection, unable to relink account', None
+
+        cursor = db_connection.cursor()
+        try:
+            cursor.execute('SELECT id, key_string FROM play_keys WHERE discord_uuid=%s', (old_uuid,))
+            result = cursor.fetchall()
+            if not result:
+                return False, f'No play key found linked to Discord UUID `{old_uuid}`', None
+            if len(result) > 1:
+                return False, f'Multiple play keys are linked to Discord UUID `{old_uuid}`, refusing to relink', None
+            key_id, key_string = result[0]
+
+            cursor.execute('SELECT key_string FROM play_keys WHERE discord_uuid=%s', (new_uuid,))
+            existing = cursor.fetchone()
+            if existing:
+                return False, f'Discord UUID `{new_uuid}` already has a play key linked (`{existing[0]}`)', None
+
+            cursor.execute('UPDATE play_keys SET discord_uuid=%s WHERE id=%s', (new_uuid, key_id))
+            cursor.execute('UPDATE blu_transfers SET discord_uuid=%s WHERE discord_uuid=%s', (new_uuid, old_uuid))
+            transfers_moved = cursor.rowcount
+            db_connection.commit()
+        except Exception as e:
+            db_connection.rollback()
+            print(f"{self._MODULE_NAME}: ERROR: Failed to relink account from {old_uuid} to {new_uuid}: {e}")
+            return False, 'Database error while relinking account', None
+        finally:
+            cursor.close()
+            db_connection.close()
+
+        note_obj = {"timestamp": int(time.time()), "note": f'Play key relinked from Discord UUID {old_uuid} to {new_uuid}. Date: {datetime.now()}'}
+        self._save_record_entry(new_uuid, self.record_type.NOTE, note_obj)
+
+        message = f'Play key `{key_string}` relinked from `{old_uuid}` to `{new_uuid}`'
+        if transfers_moved > 0:
+            message += f' ({transfers_moved} BLU transfer row(s) moved)'
+        return True, message, key_string
+
+
     def _make_game_announcement(self, title, message):
         """
         Sends a game announcement to a specified API endpoint.
