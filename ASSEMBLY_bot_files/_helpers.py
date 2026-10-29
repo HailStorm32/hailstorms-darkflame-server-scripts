@@ -634,6 +634,107 @@ class BotHelpers():
         return result[0] if result else None
 
 
+    DISPLACED_UUID_MARKER = '-displaced-'
+
+    def _relink_account(self, old_uuid, new_uuid, mod_name='unknown'):
+        """
+        Relinks the play key (and therefore the game account) tied to one Discord UUID to another Discord UUID.
+
+        If the new UUID already has a play key, that key is "displaced" in the same transaction:
+        the key is deactivated, its linked game account(s) are locked, a note is added to its record,
+        and its discord_uuid is changed to '<new_uuid>-displaced-<key id>'. This keeps exactly one
+        play_keys row per real Discord UUID, so every existing 'WHERE discord_uuid=%s' lookup keeps
+        resolving to the inherited key, while the displaced key stays findable by that prefix.
+        blu_transfers rows follow the same rule (new uuid's rows are displaced, old uuid's rows move).
+
+        Parameters:
+            old_uuid (str | int): The Discord UUID currently linked to the play key.
+            new_uuid (str | int): The Discord UUID to link the play key to.
+            mod_name (str): Name of the moderator performing the relink (for notes).
+
+        Returns:
+            dict | None, str: (result, message). result is None on failure (nothing changed), otherwise
+            {"key_string", "transfers_moved", "displaced_key", "displaced_uuid", "accounts_locked"}.
+        """
+        old_uuid = str(old_uuid)
+        new_uuid = str(new_uuid)
+
+        if old_uuid == new_uuid:
+            return None, 'The old and new Discord UUIDs are the same'
+        if self.DISPLACED_UUID_MARKER in old_uuid or self.DISPLACED_UUID_MARKER in new_uuid:
+            return None, 'Displaced play keys cannot be relinked with this command'
+
+        db_connection = self._get_db_connection()
+
+        if not db_connection:
+            return None, 'No DB connection, unable to relink account'
+
+        cursor = db_connection.cursor()
+        result = {"key_string": None, "transfers_moved": 0, "displaced_key": None, "displaced_uuid": None, "accounts_locked": 0}
+        try:
+            cursor.execute('SELECT id, key_string FROM play_keys WHERE discord_uuid=%s', (old_uuid,))
+            rows = cursor.fetchall()
+            if not rows:
+                return None, f'No play key found linked to Discord UUID `{old_uuid}`'
+            if len(rows) > 1:
+                return None, f'Multiple play keys are linked to Discord UUID `{old_uuid}`, refusing to relink. Fix manually first'
+            key_id, key_string = rows[0]
+            result["key_string"] = key_string
+
+            cursor.execute('SELECT id, key_string, notes FROM play_keys WHERE discord_uuid=%s', (new_uuid,))
+            existing = cursor.fetchall()
+            if len(existing) > 1:
+                return None, f'Multiple play keys are linked to Discord UUID `{new_uuid}`, refusing to relink. Fix manually first'
+
+            if existing:
+                ex_id, ex_key, ex_notes = existing[0]
+                displaced_uuid = f'{new_uuid}{self.DISPLACED_UUID_MARKER}{ex_id}'
+
+                # Lock the existing account the same way /lockaccount does
+                cursor.execute('UPDATE accounts SET locked=1 WHERE play_key_id=%s', (ex_id,))
+                result["accounts_locked"] = cursor.rowcount
+                cursor.execute('UPDATE play_keys SET active=0 WHERE id=%s', (ex_id,))
+
+                # Add a note to the displaced key's record (same JSON format as _save_record_entry)
+                try:
+                    notes = json.loads(ex_notes) if ex_notes else None
+                except (TypeError, ValueError):
+                    notes = None
+                if not isinstance(notes, dict):
+                    notes = {"notes": [], "offenses": [], "warnings": []}
+                notes.setdefault("notes", [])
+                notes["notes"].append({"timestamp": int(time.time()), "note": f'Account locked: Discord user {new_uuid} inherited play key {key_string} from {old_uuid} via relink by {mod_name}. Original discord_uuid {new_uuid}. Date: {datetime.now()}'})
+
+                cursor.execute('UPDATE play_keys SET discord_uuid=%s, notes=%s WHERE id=%s', (displaced_uuid, json.dumps(notes), ex_id))
+                cursor.execute('UPDATE blu_transfers SET discord_uuid=%s WHERE discord_uuid=%s', (displaced_uuid, new_uuid))
+
+                result["displaced_key"] = ex_key
+                result["displaced_uuid"] = displaced_uuid
+
+            cursor.execute('UPDATE play_keys SET discord_uuid=%s WHERE id=%s', (new_uuid, key_id))
+            cursor.execute('UPDATE blu_transfers SET discord_uuid=%s WHERE discord_uuid=%s', (new_uuid, old_uuid))
+            result["transfers_moved"] = cursor.rowcount
+            db_connection.commit()
+        except Exception as e:
+            db_connection.rollback()
+            print(f"{self._MODULE_NAME}: ERROR: Failed to relink account from {old_uuid} to {new_uuid}: {e}")
+            return None, 'Database error while relinking account'
+        finally:
+            cursor.close()
+            db_connection.close()
+
+        note_obj = {"timestamp": int(time.time()), "note": f'Play key relinked from Discord UUID {old_uuid} to {new_uuid} by {mod_name}. Date: {datetime.now()}'}
+        self._save_record_entry(new_uuid, self.record_type.NOTE, note_obj)
+
+        message = f'Play key `{key_string}` relinked from `{old_uuid}` to `{new_uuid}`'
+        if result["transfers_moved"] > 0:
+            message += f' ({result["transfers_moved"]} BLU transfer row(s) moved)'
+        if result["displaced_key"]:
+            message += (f'\nThe previous play key of `{new_uuid}` (`{result["displaced_key"]}`) was deactivated, '
+                        f'{result["accounts_locked"]} linked account(s) locked, and it is now stored under `{result["displaced_uuid"]}`')
+        return result, message
+
+
     def _make_game_announcement(self, title, message):
         """
         Sends a game announcement to a specified API endpoint.

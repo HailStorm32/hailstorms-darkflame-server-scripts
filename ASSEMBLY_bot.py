@@ -96,7 +96,7 @@ def check_for_offenses():
 
     # Get all users with a report
     cursor = db_connection.cursor(dictionary=True)
-    cursor.execute("SELECT notes, discord_uuid FROM play_keys WHERE notes IS NOT NULL AND notes != '' AND discord_uuid IS NOT NULL")
+    cursor.execute("SELECT notes, discord_uuid FROM play_keys WHERE notes IS NOT NULL AND notes != '' AND discord_uuid IS NOT NULL AND discord_uuid NOT LIKE '%-displaced-%'")
     users = cursor.fetchall()
 
     if not users:
