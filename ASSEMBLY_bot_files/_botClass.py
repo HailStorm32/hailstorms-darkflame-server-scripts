@@ -214,6 +214,15 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         """
         Send and quickly delete a configured message in the honeypot channel.
         """
+        # Wait for the Discord client to be ready before scheduling on its loop
+        import time as _time
+        for _ in range(120):
+            if self._bot.is_ready():
+                break
+            _time.sleep(1)
+        else:
+            print(f"{self._MODULE_NAME}: Bot not ready; skipping honeypot keep-active")
+            return
         future = asyncio.run_coroutine_threadsafe(
             self._keep_honeypot_active(),
             self._bot.loop
