@@ -1,15 +1,27 @@
 import asyncio
 import discord
+from datetime import timedelta
 from discord.ext import commands
 import mysql.connector
 import mysql.connector.pooling
+import random
 from mysql.connector import Error
 import sys
 import time
 from ASSEMBLY_bot_files._events import BotEvents
 from ASSEMBLY_bot_files._commands import BotCommands
 from ASSEMBLY_bot_files._helpers import BotHelpers
-from ASSEMBLY_bot_files.ASSEMBLY_botSettings import BOT_CHANNEL, ROLE_TO_PING
+from ASSEMBLY_bot_files.ASSEMBLY_botSettings import (
+    BOT_CHANNEL,
+    HONEYPOT_CHANNEL,
+    HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS,
+    HONEYPOT_KEEP_ACTIVE_MESSAGES,
+    HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE,
+    HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS,
+    HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE,
+    ROLE_TO_PING,
+    RSVD_OBJ_ID_START,
+)
 
 SECONDS_IN_DAY = 86400
 
@@ -20,7 +32,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
       - BotCommands (commands)
       - BotEvents (event listeners)
     """
-    def __init__(self, discordToken, dbConfig):
+    def __init__(self, discordToken, dbConfig, dbConfigBlu):
         """
         Initializes the AssemblyBot instance.
 
@@ -33,11 +45,13 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 'password': 'abc123',
                 'database': 'darkflame'
             }
+            dbConfigBlu (dict): Dictionary with MySQL connection information for BLU.
 
         Returns:
             None
         """
         self._MODULE_NAME = "[ASSEMBLY_bot_discord]"
+        self._last_honeypot_stale_alert_key = None
 
         self.__discordToken = discordToken
 
@@ -49,12 +63,24 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         try:
             self._connection_pool =  mysql.connector.pooling.MySQLConnectionPool(
                 pool_name="assembly_bot_pool",
-                pool_size=5,  # Number of connections in the pool
+                pool_size=10,  # Number of connections in the pool
                 **dbConfig
             )
             print(f"{self._MODULE_NAME}: MySQL connection pool created successfully.")
         except Error as e:
             print(f"{self._MODULE_NAME}: Failed to create connection pool: {e}")
+            sys.exit(1)
+
+        # Set up BLU database connection pool
+        try:
+            self._blu_connection_pool =  mysql.connector.pooling.MySQLConnectionPool(
+                pool_name="assembly_bot_blu_pool",
+                pool_size=10,  # Number of connections in the pool
+                **dbConfigBlu
+            )
+            print(f"{self._MODULE_NAME}: MySQL BLU connection pool created successfully.")
+        except Error as e:
+            print(f"{self._MODULE_NAME}: Failed to create BLU connection pool: {e}")
             sys.exit(1)
 
         super().__init__()
@@ -70,9 +96,52 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         self._setup_commands()
         self._setup_events()
 
+        # Setup BLU migration table
+        db_connection = self._get_db_connection()
+        if db_connection:
+            cursor = db_connection.cursor()
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS blu_transfers ("
+                "id INT AUTO_INCREMENT PRIMARY KEY, "
+                "discord_uuid VARCHAR(255) DEFAULT NULL, "
+                "account_id INT DEFAULT NULL, "
+                "blu_account_id INT DEFAULT NULL, "
+                "migration_state INT DEFAULT 0, "
+                "attempts INT DEFAULT 0, "
+                "chosen_chars TEXT DEFAULT NULL, "
+                "error_state INT DEFAULT 0 "
+                ");"
+            )
+            db_connection.commit()
+            cursor.close()
+            db_connection.close()
+        else:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to setup BLU migration table")
+
+        # Setup migration_object_ids table
+        db_connection = self._get_db_connection()
+        if db_connection:
+            cursor = db_connection.cursor()
+            cursor.execute(
+                "CREATE TABLE IF NOT EXISTS migration_object_ids ("
+                "next_avail_id INT DEFAULT 0 "
+                ");"
+            )
+            db_connection.commit()
+
+            cursor.execute("SELECT COUNT(*) FROM migration_object_ids")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                cursor.execute("INSERT INTO migration_object_ids (next_avail_id) VALUES (%s)", (RSVD_OBJ_ID_START,))
+                db_connection.commit()
+            cursor.close()
+            db_connection.close()
+        else:
+            print(f"{self._MODULE_NAME}: ERROR: No mysql connection, unable to setup BLU migration table")
+
     def start_discord_bot(self):
         """
-        Start the bot 
+        Start the bot
         """
         self._bot_started = True
 
@@ -83,12 +152,13 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             self._bot_started = False
             sys.exit(1)
 
-    def send_discord_message(self, message):
+    def send_discord_message(self, message, ping_role=False):
         """
         Thread-safe method to send a Discord message to the bot channel.
 
         Parameters:
             message (str): The message to send to the Discord bot channel.
+            ping_role (bool): Whether to ping a specific role in the message.
 
         Returns:
             None
@@ -104,8 +174,15 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             print(f"{self._MODULE_NAME}: ERROR: Channel '{BOT_CHANNEL}' not found! Message not sent.")
             return
 
+        if ping_role:
+            guild = channel.guild
+            role = discord.utils.get(guild.roles, name=ROLE_TO_PING)
+
         # Prepare the coroutine to send a message
-        coroutine = channel.send(message)
+        if ping_role and role:
+            coroutine = channel.send(f"{role.mention} {message}")
+        else:
+            coroutine = channel.send(message)
 
         # Schedule the coroutine on the bot's event loop
         asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
@@ -133,6 +210,102 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         except Exception as e:
             print(f"{self._MODULE_NAME}: ERROR while reporting offenses: {e}")
 
+    def keep_honeypot_active(self):
+        """
+        Send and quickly delete a configured message in the honeypot channel.
+        """
+        # Wait for the Discord client to be ready before scheduling on its loop
+        import time as _time
+        for _ in range(120):
+            if self._bot.is_ready():
+                break
+            _time.sleep(1)
+        else:
+            print(f"{self._MODULE_NAME}: Bot not ready; skipping honeypot keep-active")
+            return
+        future = asyncio.run_coroutine_threadsafe(
+            self._keep_honeypot_active(),
+            self._bot.loop
+        )
+        try:
+            future.result()
+        except Exception as e:
+            print(f"{self._MODULE_NAME}: ERROR while keeping honeypot active: {e}")
+
+    async def _keep_honeypot_active(self):
+        """
+        Keep the honeypot channel visible in Discord's recent channel activity.
+        """
+        if not self._bot_started:
+            print(f"{self._MODULE_NAME}: ERROR: Bot not started, unable to keep honeypot active")
+            return
+
+        while not self._bot.is_ready():
+            print(f"{self._MODULE_NAME}: Waiting for bot to be ready...")
+            await asyncio.sleep(5)
+
+        channel = discord.utils.get(self._bot.get_all_channels(), name=HONEYPOT_CHANNEL)
+        if channel is None:
+            print(f"{self._MODULE_NAME}: ERROR: Channel '{HONEYPOT_CHANNEL}' not found! Unable to keep honeypot active.")
+            return
+
+        await self._report_stale_honeypot_if_needed(channel)
+
+        keep_active_messages = [msg for msg in HONEYPOT_KEEP_ACTIVE_MESSAGES if msg]
+        if not keep_active_messages:
+            print(f"{self._MODULE_NAME}: ERROR: No HONEYPOT_KEEP_ACTIVE_MESSAGES configured. Unable to keep honeypot active.")
+            return
+
+        message = await channel.send(random.choice(keep_active_messages))
+        await asyncio.sleep(HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS)
+
+        try:
+            await message.delete()
+        except discord.NotFound:
+            pass
+
+    async def _report_stale_honeypot_if_needed(self, honeypot_channel):
+        """
+        Ping the configured role if the honeypot has gone too long without a human message.
+        """
+        if not HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE:
+            return
+
+        now = discord.utils.utcnow()
+        cutoff = now - timedelta(days=HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS)
+        last_human_message = None
+
+        async for msg in honeypot_channel.history(limit=None):
+            if not msg.author.bot:
+                last_human_message = msg
+                break
+
+        if last_human_message and last_human_message.created_at > cutoff:
+            self._last_honeypot_stale_alert_key = None
+            return
+
+        stale_alert_key = str(last_human_message.id) if last_human_message else "never"
+        if self._last_honeypot_stale_alert_key == stale_alert_key:
+            return
+
+        bot_channel = discord.utils.get(honeypot_channel.guild.text_channels, name=BOT_CHANNEL)
+        if bot_channel is None:
+            print(f"{self._MODULE_NAME}: ERROR: Channel '{BOT_CHANNEL}' not found! Unable to send honeypot stale activity alert.")
+            return
+
+        role = discord.utils.get(honeypot_channel.guild.roles, name=ROLE_TO_PING)
+        if role is None:
+            print(f"{self._MODULE_NAME}: ERROR: Role {ROLE_TO_PING} not found! Unable to send honeypot stale activity alert.")
+            return
+
+        if last_human_message:
+            age_days = (now - last_human_message.created_at).days
+            detail = f"Last human message in #{honeypot_channel.name} was {age_days} day(s) ago."
+        else:
+            detail = f"No human messages were found in #{honeypot_channel.name}."
+
+        await bot_channel.send(f"{role.mention} {HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE}\n{detail}")
+        self._last_honeypot_stale_alert_key = stale_alert_key
     async def _report_user_offenses(self, users_to_report):
         """
         Report user offenses to the bot channel with interactive buttons.
@@ -165,6 +338,15 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
                 color=discord.Color.yellow()
             )
 
+            # Check if the user has any warnings and note it on the report
+            record = self._pull_records(str(user)) or {}
+            warning_count = len(record.get("warnings", []))
+            if warning_count > 0:
+                user_embed.description += (
+                    f"\n\n__**Note:**__ This user has {warning_count} warning"
+                    f"{'s' if warning_count != 1 else ''} on record."
+                )
+
             # If there are more than 25 offenses, notify the user to manually view them
             if len(offenses) > 25: # 25 is the max number of fields a Discord embed can have
                 user_embed.description += (
@@ -196,7 +378,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             view.message = await channel.send(embed=user_embed, view=view) # Can use await here b/c we are in an async function being ran in the bot event loop
 
             await asyncio.sleep(0.3)
-        
+
         # Mention the moderator role to notify about potential violations
         guild = channel.guild
         role = discord.utils.get(guild.roles, name=ROLE_TO_PING)
@@ -207,6 +389,55 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             asyncio.run_coroutine_threadsafe(coroutine, self._bot.loop)
         else:
             print(f"{self._MODULE_NAME}: ERROR: Role {ROLE_TO_PING} not found! Unable to mention.")
+
+    async def _send_migration_selection(self, user_obj, nu_chars, blu_chars, available_slots):
+        """Send an interactive selection card to the user for selective migration.
+
+        Parameters
+        ----------
+        user_obj: discord.User
+            The Discord user to send the card to.
+        nu_chars: list
+            List of tuples ``(name, id)`` for the user's NU characters.
+        blu_chars: list
+            List of tuples ``(name, id)`` for the user's BLU characters.
+        available_slots: int
+            Number of free character slots currently available on NU.
+        """
+
+        if not self._bot_started:
+            print(f"{self._MODULE_NAME}: ERROR: Bot not started, unable to send migration selection")
+            return
+
+        embed = discord.Embed(
+            title="BLU Migration",
+            description="Select which characters you wish to migrate and delete.\n\n**WARNING:** This action is irreversible, choose carefully!\n\n",
+            color=discord.Color.blue(),
+        )
+
+        if nu_chars:
+            embed.add_field(
+                name="Your NU Characters (to delete)",
+                value="\n".join([name for name, _ in nu_chars]),
+                inline=False,
+            )
+
+        embed.add_field(
+            name="Your BLU Characters (to migrate)",
+            value="\n".join([name for name, _ in blu_chars]) or "None",
+            inline=False,
+        )
+
+        view = self.MigrationSelectionView(
+            user_obj.id,
+            nu_chars,
+            blu_chars,
+            available_slots,
+            self,
+        )
+        message = await user_obj.send(embed=embed, view=view)
+        view.message = message  # Save message for later edits (timeout/confirm)
+        self.active_migration_views.add(view)
 
 
     ###########################
@@ -229,7 +460,7 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
             Returns:
                 None: This method does not return a value.
             """
-       
+
             super().__init__(timeout=timeout) # Timeout in seconds
             self.user_id = user_id
             self.offenses = offenses
@@ -326,6 +557,246 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
 
             return button
 
+    class MigrationSelectionView(discord.ui.View):
+        """Interactive view for selecting migration options."""
+
+        def __init__(self, user_id, nu_chars, blu_chars, available_slots, bot_instance, timeout=SECONDS_IN_DAY):
+            super().__init__(timeout=timeout)
+            self.user_id = user_id
+            self.bot_instance = bot_instance
+            self.available_slots = available_slots
+
+            # Track selected options so they can persist after view edits
+            self.selected_nu: set[str] = set()
+            self.selected_blu: set[str] = set()
+
+            # Keep mapping of id -> name for summary/confirmation
+            self.nu_id_to_name = {str(cid): name for name, cid in nu_chars}
+            self.blu_id_to_name = {str(cid): name for name, cid in blu_chars}
+
+            # Build SelectOption lists for NU and BLU characters
+            nu_options = [discord.SelectOption(label=name, value=str(cid)) for name, cid in nu_chars]
+            blu_options = [discord.SelectOption(label=name, value=str(cid)) for name, cid in blu_chars]
+
+            self.blu_char_count = len(blu_options)
+            # Determine how many NU characters the user may delete and how many
+            # BLU characters can be transferred initially
+            max_delete = max(0, self.blu_char_count - available_slots)
+            max_transfer = min(self.blu_char_count, max(1, available_slots))
+
+            if nu_options and max_delete > 0:
+                self.nu_select = discord.ui.Select(
+                    placeholder="NU chars to delete",
+                    options=nu_options,
+                    min_values=0,
+                    max_values=max_delete,
+                )
+
+                async def nu_callback(interaction: discord.Interaction):
+                    # Update BLU transfer limit when NU selections change
+                    self.selected_nu = set(self.nu_select.values)
+                    new_max = min(
+                        self.blu_char_count,
+                        max(1, self.available_slots + len(self.nu_select.values)),
+                    )
+                    self.blu_select.max_values = new_max
+                    self.blu_select.placeholder = f"BLU chars to transfer (max {new_max})"
+
+                    # If the new limit is smaller than the current selection
+                    # clear the BLU selection so the user can pick again
+                    if len(self.selected_blu) > new_max:
+                        # Clear stored selections and reset option defaults so
+                        # nothing appears chosen when the view is re-rendered
+                        self.selected_blu.clear()
+                        for opt in self.blu_select.options:
+                            opt.default = False
+
+                    # Persist selections by updating option defaults
+                    for opt in self.nu_select.options:
+                        opt.default = opt.value in self.selected_nu
+                    for opt in self.blu_select.options:
+                        opt.default = opt.value in self.selected_blu
+                    await interaction.response.edit_message(view=self)
+
+                self.nu_select.callback = nu_callback
+                self.add_item(self.nu_select)
+            else:
+                self.nu_select = None
+
+            self.blu_select = discord.ui.Select(
+                placeholder=f"BLU chars to transfer (max {max_transfer})",
+                options=blu_options,
+                min_values=1,
+                max_values=max_transfer,
+            )
+
+            async def blu_callback(interaction: discord.Interaction):
+                self.selected_blu = set(self.blu_select.values)
+                await interaction.response.defer()
+
+            self.blu_select.callback = blu_callback
+            self.add_item(self.blu_select)
+
+        def _disable_all_items(self):
+            """Disable all interactive components in this view."""
+            for child in self.children:
+                child.disabled = True
+
+            if hasattr(self, "message"):
+                # Update the message with disabled components
+                return self.message.edit(view=self)
+            return None
+
+        async def on_timeout(self):
+            """Disable the view when it times out."""
+            await self._disable_all_items()
+            self.bot_instance.active_migration_views.discard(self)
+
+        @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+        async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if not self.bot_instance.migrations_enabled:
+                await interaction.response.send_message(
+                    "Migrations are currently disabled.", ephemeral=True
+                )
+                await self._disable_all_items()
+                self.bot_instance.active_migration_views.discard(self)
+                self.stop()
+                return
+
+            delete_ids = [char for char in self.selected_nu]
+            transfer_ids = [char for char in self.selected_blu]
+            allowed = self.available_slots + len(delete_ids)
+
+            if len(transfer_ids) > allowed:
+                await interaction.response.send_message(
+                    f"❌ You selected {len(transfer_ids)} BLU character(s) but only have {allowed} slot(s) available.",
+                    ephemeral=True,
+                )
+                return
+
+            if len(transfer_ids) == 0:
+                await interaction.response.send_message(
+                    "❌ You must select at least one BLU character to transfer.",
+                    ephemeral=True,
+                )
+                return
+
+            summary_lines = []
+            if transfer_ids:
+                summary_lines.append("**BLU characters to transfer:**")
+                for cid in transfer_ids:
+                    summary_lines.append(f"- {self.blu_id_to_name.get(cid, cid)} (`{cid}`)")
+            if delete_ids:
+                summary_lines.append("\n**NU characters to delete:**")
+                for cid in delete_ids:
+                    summary_lines.append(f"- {self.nu_id_to_name.get(cid, cid)} (`{cid}`)")
+
+            view = self.FinalConfirmView(self, delete_ids, transfer_ids)
+            msg = "You are about to begin the migration with the following selections:\n" + "\n".join(summary_lines)
+            msg += "\n\nClick **Finalize Transfer** below to continue."
+            await interaction.response.send_message(msg, view=view)
+            view.message = await interaction.original_response()
+
+        class FinalConfirmView(discord.ui.View):
+            """View for confirming the migration after a short delay."""
+
+            def __init__(self, parent, delete_ids, transfer_ids, timeout=60):
+                super().__init__(timeout=timeout)
+                self.parent = parent
+                self.delete_ids = delete_ids
+                self.transfer_ids = transfer_ids
+                self.confirm_btn = discord.ui.Button(
+                    label="Finalize Transfer",
+                    style=discord.ButtonStyle.green,
+                    disabled=True,
+                )
+                self.cancel_btn = discord.ui.Button(
+                    label="Cancel", style=discord.ButtonStyle.red
+                )
+                self.confirm_btn.callback = self._finalize
+                self.cancel_btn.callback = self._cancel
+                self.add_item(self.confirm_btn)
+                self.add_item(self.cancel_btn)
+                self.delay_task = asyncio.create_task(self._enable_confirm())
+
+            async def on_timeout(self):
+                await self._disable_all_items()
+
+            async def _disable_all_items(self):
+                for child in self.children:
+                    child.disabled = True
+
+                if hasattr(self, "message"):
+                    try:
+                        await self.message.edit(view=self)
+                    except discord.NotFound:
+                        pass
+
+            async def _enable_confirm(self):
+                try:
+                    await asyncio.sleep(3)
+                except asyncio.CancelledError:
+                    return
+                self.confirm_btn.disabled = False
+                if hasattr(self, "message"):
+                    try:
+                        await self.message.edit(view=self)
+                    except discord.NotFound:
+                        pass
+
+            async def _finalize(self, interaction: discord.Interaction):
+                if hasattr(self, "delay_task"):
+                    self.delay_task.cancel()
+                await self._disable_all_items()
+                await interaction.response.defer()
+                data = {"delete_nu": self.delete_ids, "migrate_blu": self.transfer_ids}
+                success = await asyncio.to_thread(
+                    self.parent.bot_instance._set_user_migration_selection,
+                    self.parent.user_id,
+                    data,
+                )
+
+                if success:
+                    await asyncio.to_thread(
+                        self.parent.bot_instance._set_user_transfer_state,
+                        self.parent.user_id,
+                        self.parent.bot_instance.migration_state.TRANSFER_QUEUED,
+                    )
+                    migration_request = {
+                        "discord_uuid": self.parent.user_id,
+                        "selective_migration": True,
+                    }
+                    self.parent.bot_instance.migration_queue.put(migration_request)
+                    msg = "Selection saved. Your migration request has been queued. Please wait for the migration to finish.\n\nYou will be notified when the migration is complete."
+                    await self.parent._disable_all_items()
+                else:
+                    await asyncio.to_thread(
+                        self.parent.bot_instance._set_user_transfer_state,
+                        self.parent.user_id,
+                        self.parent.bot_instance.migration_state.ERROR_STATE,
+                        10
+                    )
+                    msg = "Failed to save selection. Please contact a mythran."
+
+                await interaction.followup.send(msg)
+                self.parent.bot_instance.active_migration_views.discard(self.parent)
+                self.parent.stop()
+                self.stop()
+
+            async def _cancel(self, interaction: discord.Interaction):
+                if hasattr(self, "delay_task"):
+                    self.delay_task.cancel()
+                if hasattr(self, "message"):
+                    try:
+                        await self.message.delete()
+                    except discord.NotFound:
+                        pass
+                await interaction.response.send_message(
+                    "Migration cancelled. You may adjust your selections.",
+                    ephemeral=True,
+                )
+                self.stop()
+
 
     def __del__(self):
         """
@@ -341,6 +812,5 @@ class AssemblyBot(BotHelpers, BotCommands, BotEvents):
         # Close the individual database connection if it exists
         if hasattr(self, "_dbConnection") and self._dbConnection.is_connected():
             self._dbConnection.close()
-
 
 

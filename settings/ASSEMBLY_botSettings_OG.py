@@ -4,14 +4,26 @@ DATABASE_NAME = "nameHere" #Name of the database
 DATABASE_USER = "unameHere" #Name of the database user
 DATABASE_PASS = "passHere" #Database password
 
+#Database Credentials for BLU database for transfers
+DATABASE_IP_BLU = "localhost" #IP of the mysql database
+DATABASE_USER_BLU = "unameHere" #Name of the database user
+DATABASE_PASS_BLU = "passHere" #Database password
+DATABASE_NAME_BLU = "nameHere" #Name of the database
+
 #Enable or disable the bot
 ENABLE_BOT = True
 
 #Discord Bot Token
 DISCORD_TOKEN = "TOKEN_HERE"
 
+#Server ID
+SERVER_ID = 12345678901234567890 #Replace with your server ID
+
 #Channel for the bot to post messages in
 BOT_CHANNEL = "channelNameHere"
+
+#Channel for BLU transfer requests
+BLU_TRANSFER_CHANNEL = "transfer-requests"
 
 #Role to ping if there is an issue with the playkey
 ROLE_TO_PING = "roleNameHere"
@@ -22,6 +34,22 @@ COMMAND_ROLE = "roleNameHere"
 
 OFFENSE_THRESHOLD = 3 #Number of offenses before a user flagged for review
 
+################################
+# BLU Migration Settings
+################################
+LAST_NU_OBJECT_ID = 99283 #Last NU object ID
+LAST_BLU_OBJECT_ID = 92505 #Last BLU object ID
+RSVD_OBJ_ID_START = LAST_NU_OBJECT_ID + 1
+RSVD_OBJ_ID_END = RSVD_OBJ_ID_START + LAST_BLU_OBJECT_ID + 10000 #last NU + last BLU + Extra
+TOTAL_RSVD_OBJ_IDS = RSVD_OBJ_ID_END - RSVD_OBJ_ID_START
+
+# Offest the object_tracker_ids in NU by RSVD_OBJ_ID_END + 1 to prevent conflicts
+
+CHAR_XML_VERSION_TARGET = 6 #Highest character XML version XML should be at for BLU migrations
+
+# Set to False to prevent new BLU migrations from starting
+MIGRATIONS_ENABLED = True
+
 
 ################################
 # Bot Periodic
@@ -29,7 +57,7 @@ OFFENSE_THRESHOLD = 3 #Number of offenses before a user flagged for review
 SEC_IN_HOUR = 3600
 
 PERIODIC_FREQUENCY = 60  #In seconds, how frequent the periodic task should run
-OFFENSE_REPORT_FREQ = 12 * SEC_IN_HOUR #In hours, how frequent the offense report should run 
+OFFENSE_REPORT_FREQ = 12 * SEC_IN_HOUR #In hours, how frequent the offense report should run
 TASK_CHECK_FREQ = 12 * SEC_IN_HOUR  #In hours, how frequent the task check should run
 
 
@@ -55,7 +83,7 @@ GPT_API_KEY = "API_KEY_HERE"  #OpenAI API Key
 SEC_IN_HOUR = 3600
 NAME_CHECK_FREQ = 24 * SEC_IN_HOUR  #In hours, how frequent the name check should run
 
-MAX_NAMES = 100 #Max number of names to check at a time
+MAX_NAMES = 500 #Max number of names to check at a time
 
 # Log Settings - logs all names checked and rejected names (and reasons) to a log file
 LOG_TO_FILE = True
@@ -79,7 +107,7 @@ ALLOWED_NAMES = (   #List of names that keep on getting flagged but should be al
     "boney" - The word "boney" is not offensive or inappropriate.
 
     """
-) 
+)
 
 DISALLOWED_NAMES = (   #List of names that should be disallowed, and their reasons:
     """
@@ -98,21 +126,21 @@ DISALLOWED_NAMES = (   #List of names that should be disallowed, and their reaso
 
 NAME_APPROVAL_GPT_SYSTEM_MESSAGE = (
     """
-    You are a GPT crafted for screening names in a children's game, focusing on appropriateness. 
-    You evaluate names submitted through text. You excel in providing detailed cultural insights 
-    on flagged names, offering in-depth explanations on why a name might be unsuitable. You avoid technical jargon, 
-    maintaining simplicity in your explanations to be easily understandable. You ensure that your analysis is both 
-    accurate and educational, helping to create a safe environment for children's games. You emphasize respectful and 
+    You are a GPT crafted for screening names in a children's game, focusing on appropriateness.
+    You evaluate names submitted through text. You excel in providing detailed cultural insights
+    on flagged names, offering in-depth explanations on why a name might be unsuitable. You avoid technical jargon,
+    maintaining simplicity in your explanations to be easily understandable. You ensure that your analysis is both
+    accurate and educational, helping to create a safe environment for children's games. You emphasize respectful and
     informative communication, avoiding complex language to ensure clarity and accessibility for a broad audience.
-    Should only return names that you have flagged. 
-    Random strings are fine as long as they don't contain an inappropriate word. If a name contains or may contain an offensive 
+    Should only return names that you have flagged.
+    Random strings are fine as long as they don't contain an inappropriate word. If a name contains or may contain an offensive
     or inappropriate term or word, list that term or word. Also say what part of the name might be offensive or inappropriate.
     Do not list the name if it's okay.
     Do not be overly sensitive to borderline cases.
     Look for cases where numbers are used to represent letters in inappropriate words.
     Reject names that have potty language, sexual innuendos, or religious references.
     Respond with a JSON list of flagged names and reasons. If no names are flagged, return an empty JSON list.
-    JSON should follow the following format: 
+    JSON should follow the following format:
     [
     {
         "name": "name_here",
@@ -145,17 +173,38 @@ WHITELIST_GPT_SYSTEM_MESSAGE = (
     """
     You are a GPT crafted to assist in processing the whitelist requests for a game chat.
     You will be given a list of messages that may contain whitelist words/strings.
-    You must ignore the messages that are not relevant to the whitelist request. 
-    If a message contains multiple words/strings, parse those out. 
+    You must ignore the messages that are not relevant to the whitelist request.
+    If a message contains multiple words/strings, parse those out.
     If you come across a word, make sure to add the plural, singular, and past tense to the list.
     You must let pass ascii based emojis like :) B) etc. in the whitelist.
     You must let pass numbers
 
     Remove newlines and extra spaces.
-    You must return a JSON list of the whitelist words/strings. 
+    You must return a JSON list of the whitelist words/strings.
     Do not put JSON in a code block.
     """
 )
+
+
+##############################
+# Honeypot Settings
+##############################
+HONEYPOT_CHANNEL = "honeypot" #Channel to act as a honeypot
+HONEYPOT_TIMEOUT_DURATION = 60 * 60 * 24 * 1 #Duration of timeout for users that interact with the honeypot in seconds (1 day)
+HONEYPOT_EXEMPT_ROLE = ROLE_TO_PING #Role that is exempt from honeypot (can interact with it without getting timed out)
+HONEYPOT_ACTION = "kick" #Action to take when a user interacts with the honeypot, either "ban", or "kick"
+HONEYPOT_DELETE_MESSAGE_HISTORY = True #Whether to delete the message history of a user that interacted with the honeypot
+HONEYPOT_HISTORY_LENGTH_HOURS = 2 #How far back to delete messages in hours (if HONEYPOT_DELETE_MESSAGE_HISTORY is True)
+HONEYPOT_KEEP_ACTIVE = True #Whether to keep the honeypot active by periodically sending messages in the honeypot channel (then deletes them)
+HONEYPOT_KEEP_ACTIVE_FREQ = 24 * SEC_IN_HOUR #How often to send the keep-active message when HONEYPOT_KEEP_ACTIVE is True
+HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS = 0 #Seconds to randomly add or subtract from HONEYPOT_KEEP_ACTIVE_FREQ
+HONEYPOT_KEEP_ACTIVE_MESSAGES = [ #Messages to randomly choose from for the keep-active post
+    "Keeping channel alive...",
+]
+HONEYPOT_KEEP_ACTIVE_DELETE_DELAY_SECONDS = 5 #How long to wait before deleting the keep-active message
+HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE = False #Whether to ping ROLE_TO_PING when the last human honeypot message is too old
+HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS = 7 #Ping when the last human honeypot message is older than this many days
+HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE = "Honeypot has not had a human message recently." #Message sent with the role ping
 
 
 ##############################
@@ -168,4 +217,19 @@ if PERIODIC_FREQUENCY > OFFENSE_REPORT_FREQ:
     sys.exit(1)
 if PERIODIC_FREQUENCY > TASK_CHECK_FREQ:
     print("PERIODIC_FREQUENCY must be less than TASK_CHECK_FREQ")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_FREQ <= 0:
+    print("HONEYPOT_KEEP_ACTIVE_FREQ must be greater than 0")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS < 0:
+    print("HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS must be greater than or equal to 0")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE and not HONEYPOT_KEEP_ACTIVE_MESSAGES:
+    print("HONEYPOT_KEEP_ACTIVE_MESSAGES must contain at least one message when HONEYPOT_KEEP_ACTIVE is True")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE and HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS <= 0:
+    print("HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_MESSAGE_DAYS must be greater than 0")
+    sys.exit(1)
+if HONEYPOT_KEEP_ACTIVE_PING_ROLE_ON_STALE_HUMAN_MESSAGE and not HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE:
+    print("HONEYPOT_KEEP_ACTIVE_STALE_HUMAN_PING_MESSAGE must not be empty when stale human message pings are enabled")
     sys.exit(1)

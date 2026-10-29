@@ -1,4 +1,4 @@
-'''                                                                               
+'''
       ▓▒██████████████████████████████████████▓▒
     █▓▒████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▒
    ▓▒███▒░░░░░░░░░░░░░░░░▒░▓░░░░░░░░░░░░░░░░███▓▒
@@ -23,21 +23,22 @@
                  ▒▓███▒▒▒▒▒▒▒▒████▒▓
                   ▒▓█████████████▒▓
                    ▒▒▓▓▓▓▓▓▓▓▓▓▓▒▓
-   
-    _      ____   ____   _____   __  __   ____   _    __   __                                                                                                                                                                                                                                                                                                                                                               
-   / \    / ___| / ___| | ____| |  \/  | | __ ) | |   \ \ / /                                                                                                                                                                                                                                                                                                                                                               
-  / _ \   \___ \ \___ \ |  _|   | |\/| | |  _ \ | |    \ V /                                                                                                                                                                                                                                                                                                                                                                
- / ___ \ _ ___) | ___) || |___ _| |  | |_| |_) || |___ _| |                                                                                                                                                                                                                                                                                                                                                                 
-/_/   \_(_)____(_)____(_)_____(_)_|  |_(_)____(_)_____(_)_|                                                                                                                                                                                                                                                                                                                                                                 
-    _         _                        _           _   ____                              _     _               ____            _                    __              _____        __                                         _       __  __           _                _   _                 ____            _        _                         ___     _      __   __      _ _     _        _ _           _   _             
-   / \  _   _| |_ ___  _ __ ___   __ _| |_ ___  __| | / ___| _   _ _ __   ___ _ ____   _(_)___(_) ___  _ __   / ___| _   _ ___| |_ ___ _ __ ___    / _| ___  _ __  | ____|_ __  / _| ___  _ __ ___ ___ _ __ ___   ___ _ __ | |_    |  \/  | ___   __| | ___ _ __ __ _| |_(_) ___  _ __     | __ )  __ _ ___(_) ___  | |    ___   __ _ ___     ( _ )   | | ____\ \ / /   __| (_)___| |_ _ __(_) |__  _   _| |_(_) ___  _ __  
-  / _ \| | | | __/ _ \| '_ ` _ \ / _` | __/ _ \/ _` | \___ \| | | | '_ \ / _ \ '__\ \ / / / __| |/ _ \| '_ \  \___ \| | | / __| __/ _ \ '_ ` _ \  | |_ / _ \| '__| |  _| | '_ \| |_ / _ \| '__/ __/ _ \ '_ ` _ \ / _ \ '_ \| __|   | |\/| |/ _ \ / _` |/ _ \ '__/ _` | __| |/ _ \| '_ \    |  _ \ / _` / __| |/ __| | |   / _ \ / _` / __|    / _ \/\ | |/ / _ \ V /   / _` | / __| __| '__| | '_ \| | | | __| |/ _ \| '_ \ 
+
+    _      ____   ____   _____   __  __   ____   _    __   __
+   / \    / ___| / ___| | ____| |  \/  | | __ ) | |   \ \ / /
+  / _ \   \___ \ \___ \ |  _|   | |\/| | |  _ \ | |    \ V /
+ / ___ \ _ ___) | ___) || |___ _| |  | |_| |_) || |___ _| |
+/_/   \_(_)____(_)____(_)_____(_)_|  |_(_)____(_)_____(_)_|
+    _         _                        _           _   ____                              _     _               ____            _                    __              _____        __                                         _       __  __           _                _   _                 ____            _        _                         ___     _      __   __      _ _     _        _ _           _   _
+   / \  _   _| |_ ___  _ __ ___   __ _| |_ ___  __| | / ___| _   _ _ __   ___ _ ____   _(_)___(_) ___  _ __   / ___| _   _ ___| |_ ___ _ __ ___    / _| ___  _ __  | ____|_ __  / _| ___  _ __ ___ ___ _ __ ___   ___ _ __ | |_    |  \/  | ___   __| | ___ _ __ __ _| |_(_) ___  _ __     | __ )  __ _ ___(_) ___  | |    ___   __ _ ___     ( _ )   | | ____\ \ / /   __| (_)___| |_ _ __(_) |__  _   _| |_(_) ___  _ __
+  / _ \| | | | __/ _ \| '_ ` _ \ / _` | __/ _ \/ _` | \___ \| | | | '_ \ / _ \ '__\ \ / / / __| |/ _ \| '_ \  \___ \| | | / __| __/ _ \ '_ ` _ \  | |_ / _ \| '__| |  _| | '_ \| |_ / _ \| '__/ __/ _ \ '_ ` _ \ / _ \ '_ \| __|   | |\/| |/ _ \ / _` |/ _ \ '__/ _` | __| |/ _ \| '_ \    |  _ \ / _` / __| |/ __| | |   / _ \ / _` / __|    / _ \/\ | |/ / _ \ V /   / _` | / __| __| '__| | '_ \| | | | __| |/ _ \| '_ \
  / ___ \ |_| | || (_) | | | | | | (_| | ||  __/ (_| |  ___) | |_| | |_) |  __/ |   \ V /| \__ \ | (_) | | | |  ___) | |_| \__ \ ||  __/ | | | | | |  _| (_) | |    | |___| | | |  _| (_) | | | (_|  __/ | | | | |  __/ | | | |_ _  | |  | | (_) | (_| |  __/ | | (_| | |_| | (_) | | | |_  | |_) | (_| \__ \ | (__  | |__| (_) | (_| \__ \_  | (_>  < |   <  __/| |   | (_| | \__ \ |_| |  | | |_) | |_| | |_| | (_) | | | |
 /_/   \_\__,_|\__\___/|_| |_| |_|\__,_|\__\___|\__,_| |____/ \__,_| .__/ \___|_|    \_/ |_|___/_|\___/|_| |_| |____/ \__, |___/\__\___|_| |_| |_| |_|  \___/|_|    |_____|_| |_|_|  \___/|_|  \___\___|_| |_| |_|\___|_| |_|\__( ) |_|  |_|\___/ \__,_|\___|_|  \__,_|\__|_|\___/|_| |_( ) |____/ \__,_|___/_|\___| |_____\___/ \__, |___( )  \___/\/ |_|\_\___||_|    \__,_|_|___/\__|_|  |_|_.__/ \__,_|\__|_|\___/|_| |_|
-                                                                  |_|                                                |___/                                                                                                     |/                                                      |/                                       |___/    |/                                                                                                                                                                    
+                                                                  |_|                                                |___/                                                                                                     |/                                                      |/                                       |___/    |/
 '''
 import json
 import mysql.connector
+import random
 import sys
 import threading
 import time
@@ -85,19 +86,19 @@ def check_for_offenses():
             ]
         }
     '''
-    
+
     # Connect to the database
     try:
         db_connection = mysql.connector.connect(**dbConfig)
-    except mysql.connector.Error as err:  
+    except mysql.connector.Error as err:
         print(f"{MODULE_NAME}: ERROR: {err}")
         return None
-    
+
     # Get all users with a report
     cursor = db_connection.cursor(dictionary=True)
     cursor.execute("SELECT notes, discord_uuid FROM play_keys WHERE notes IS NOT NULL AND notes != '' AND discord_uuid IS NOT NULL")
     users = cursor.fetchall()
-    
+
     if not users:
         print(f"{MODULE_NAME}: WARNING: No users with offenses found")
 
@@ -105,16 +106,16 @@ def check_for_offenses():
         db_connection.close()
 
         return None
-    
+
     users_to_report = {}
-    
+
     # Loop through each user and check their offenses
     for user in users:
         discord_uuid = user["discord_uuid"]
         user_report = json.loads(user["notes"])
 
         users_to_report[discord_uuid] = []
-        
+
         # Go through each offense and check if a mod has been notified for it
         for offense in user_report.get("offenses", []):
             if offense["mod-notified"] == False:
@@ -124,7 +125,7 @@ def check_for_offenses():
         if len(users_to_report[discord_uuid]) < OFFENSE_THRESHOLD:
             # Remove user from being reported
             del users_to_report[discord_uuid]
-    
+
     cursor.close()
     db_connection.close()
 
@@ -135,7 +136,7 @@ def check_for_offenses():
 #------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    
+
     dbConfig = {
         'host': DATABASE_IP,
         'user': DATABASE_USER,
@@ -143,10 +144,27 @@ if __name__ == "__main__":
         'database': DATABASE_NAME
     }
 
+    dbConfigBlu = {
+        'host': DATABASE_IP_BLU,
+        'user': DATABASE_USER_BLU,
+        'password': DATABASE_PASS_BLU,
+        'database': DATABASE_NAME_BLU
+    }
+
     # TEMPORARY for testing purposes
     # add_offenses_to_random_user(4)
 
-    AssemblyBotInstance = AssemblyBot(DISCORD_TOKEN, dbConfig)
+    AssemblyBotInstance = AssemblyBot(DISCORD_TOKEN, dbConfig, dbConfigBlu)
+
+    def _notify_name_approval_api_error(message):
+        # Only attempt Discord messaging if the bot is enabled.
+        if ENABLE_BOT:
+            try:
+                AssemblyBotInstance.send_discord_message(message, ping_role=True)
+            except Exception as e:
+                print(MODULE_NAME + ": ERROR: Failed to send name approval API error message to Discord: " + str(e))
+        else:
+            print(MODULE_NAME + ": Name approval API error (bot disabled): " + str(message))
 
     threads = []
 
@@ -158,23 +176,39 @@ if __name__ == "__main__":
         bot_thread.start()
         threads.append(
             {
-            "thread_handle": bot_thread, 
-            "thread_target": AssemblyBotInstance.start_discord_bot, 
-            "thread_name": "Discord_Bot_Thread", 
+            "thread_handle": bot_thread,
+            "thread_target": AssemblyBotInstance.start_discord_bot,
+            "thread_name": "Discord_Bot_Thread",
             "is_daemon": False})
+
+        # Start the migration service in a separate thread
+        migration_thread = threading.Thread(target=AssemblyBotInstance._main_migration_loop)
+        migration_thread.daemon = True
+        migration_thread.start()
+        threads.append({
+            "thread_handle": migration_thread,
+            "thread_target": AssemblyBotInstance._main_migration_loop,
+            "thread_name": "Migration_Thread",
+            "is_daemon": True
+        })
     else:
         print(MODULE_NAME + ": Discord bot is disabled")
 
     if ENABLE_NAME_APPROVAL:
         print(MODULE_NAME + ": Starting name approval service...")
         # Start the name approval service here
-        name_approval_thread = threading.Thread(target=name_approval.main)
+        name_approval_thread = threading.Thread(
+            target=name_approval.main,
+            kwargs={"on_api_error": _notify_name_approval_api_error},
+        )
         name_approval_thread.daemon = True # Daemonize the thread so it stops when the main thread stops
         name_approval_thread.start()
         threads.append({
-            "thread_handle": name_approval_thread, 
-            "thread_target": name_approval.main, 
-            "thread_name": "name_approval_thread", 
+            "thread_handle": name_approval_thread,
+            "thread_target": name_approval.main,
+            "thread_args": (),
+            "thread_kwargs": {"on_api_error": _notify_name_approval_api_error},
+            "thread_name": "name_approval_thread",
             "is_daemon": True})
     else:
         print(MODULE_NAME + ": Name approval service is disabled")
@@ -182,19 +216,20 @@ if __name__ == "__main__":
     if len(threads) == 0:
         print(MODULE_NAME + ": ERROR: No systems enabled! See ASSEMBLY_botSettings.py\n Exiting...")
         sys.exit(1)
-    
+
     '''
     Start Periodic
     '''
     task_check_target = 0
     offense_report_target = 0
-    
+    honeypot_keep_active_target = 0
+
     while True:
-        
+
         # Run offense report check
         if time.time() > offense_report_target:
-          
-            if ENABLE_NAME_APPROVAL and ENABLE_BOT and TRACK_OFFENSES:
+
+            if ENABLE_NAME_APPROVAL and ENABLE_BOT and TRACK_OFFENSES and getattr(name_approval, "NAME_APPROVAL_RUNTIME_ENABLED", True):
                 print(MODULE_NAME + ": Checking for offenses...")
                 users_to_report = check_for_offenses()
 
@@ -205,21 +240,45 @@ if __name__ == "__main__":
 
             offense_report_target = time.time() + OFFENSE_REPORT_FREQ
 
+        # Keep the honeypot channel active on the configured interval.
+        if ENABLE_BOT and HONEYPOT_KEEP_ACTIVE and time.time() > honeypot_keep_active_target:
+            print(MODULE_NAME + ": Keeping honeypot active...")
+            AssemblyBotInstance.keep_honeypot_active()
+            keep_active_offset = random.uniform(
+                -HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS,
+                HONEYPOT_KEEP_ACTIVE_FREQ_RANDOMNESS,
+            )
+            honeypot_keep_active_target = time.time() + max(1, HONEYPOT_KEEP_ACTIVE_FREQ + keep_active_offset)
+
         # Check if any threads are dead and restart them
         if time.time() > task_check_target:
             for thread in threads:
                 if not thread["thread_handle"].is_alive():
+                    # Don't restart name approval if it has been disabled at runtime (e.g. OpenAI API error)
+                    if thread.get("thread_name") == "name_approval_thread" and not getattr(name_approval, "NAME_APPROVAL_RUNTIME_ENABLED", True):
+                        print(MODULE_NAME + ": Name approval thread is disabled; skipping restart")
+                        continue
                     print(MODULE_NAME + ": WARNING: Thread " + str(thread["thread_name"]) + " is dead, restarting...")
-                    new_thread = threading.Thread(target=thread["thread_target"])
+                    new_thread = threading.Thread(
+                        target=thread["thread_target"],
+                        args=thread.get("thread_args", ()),
+                        kwargs=thread.get("thread_kwargs", {}),
+                    )
                     new_thread.daemon = thread["is_daemon"]
                     new_thread.start()
                     thread["thread_handle"] = new_thread
                     print(MODULE_NAME + ": Thread " + str(thread["thread_name"]) + " restarted successfully")
-            
+
             task_check_target = time.time() + TASK_CHECK_FREQ
 
         # Sleep for a while before checking again
         time.sleep(PERIODIC_FREQUENCY)
+
+
+'''
+setup:
+
+'''
 
 
 '''
