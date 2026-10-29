@@ -679,8 +679,8 @@ class BotCommands():
                     await interaction.response.send_message(f'User with name/play-key/uuid `{identifier}` not found', ephemeral=True)
                     return
 
-            success, message, key_string = await asyncio.to_thread(self._relink_account, old_uuid, target_uuid)
-            if not success:
+            result, message = await asyncio.to_thread(self._relink_account, old_uuid, target_uuid, str(interaction.user))
+            if not result:
                 await interaction.response.send_message(f'⚠️ Unable to relink account: {message}', ephemeral=True)
                 return
 
@@ -689,7 +689,10 @@ class BotCommands():
             # Log the action to the bot channel
             guild = interaction.guild
             botMessageChannel = discord.utils.get(guild.text_channels, name=BOT_CHANNEL)
-            logMessage = f'Play key `{key_string}` relinked from `{old_uuid}` (<@{old_uuid}>) to `{target_uuid}` (<@{target_uuid}>) by `{interaction.user}`.'
+            logMessage = f'Play key `{result["key_string"]}` relinked from `{old_uuid}` (<@{old_uuid}>) to `{target_uuid}` (<@{target_uuid}>) by `{interaction.user}`.'
+            if result["displaced_key"]:
+                logMessage += (f'\nThe previous play key of `{target_uuid}` (`{result["displaced_key"]}`) was deactivated and '
+                               f'{result["accounts_locked"]} linked account(s) **locked**. It is now stored under `{result["displaced_uuid"]}`.')
             if botMessageChannel:
                 await botMessageChannel.send(logMessage, allowed_mentions=discord.AllowedMentions.none())
             else:
